@@ -1,0 +1,6 @@
+# No dependencies required for basic development
+# Add packages here as needed
+
+# Example: For a more advanced dev server
+# flask
+# livereload
