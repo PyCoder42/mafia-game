@@ -172,6 +172,8 @@ const state = {
   votes: {},
   intelResults: {},
   winner: null,
+  winReason: null,
+  finalDeath: null,
   announcement: null,
   selectedLocation: null,
   selectedAction: null,
@@ -213,8 +215,17 @@ function calculateRolesFromPreset(preset, count) {
   };
 }
 
+// Get player count for lobby screens (includes solo player name which isn't in state.players yet)
+function getLobbyPlayerCount() {
+  let count = getAllPlayers().length;
+  if (state.screen === 'solo_lobby' && state.soloPlayerName.trim()) {
+    count += 1;
+  }
+  return count;
+}
+
 function updateRoleConfig() {
-  state.roleConfig = calculateRolesFromPreset(state.selectedPreset, getAllPlayers().length);
+  state.roleConfig = calculateRolesFromPreset(state.selectedPreset, getLobbyPlayerCount());
 }
 
 function getTotalRoles() {
@@ -223,27 +234,42 @@ function getTotalRoles() {
 
 function getStartWarnings() {
   const warnings = [];
+  const playerCount = getLobbyPlayerCount();
   if (state.roleConfig.villager < 0) warnings.push('Not enough villagers!');
-  if (state.roleConfig.mafia === 0 && getAllPlayers().length >= 3) warnings.push('No mafia assigned!');
+  if (state.roleConfig.mafia === 0 && playerCount >= 3) warnings.push('No mafia assigned!');
+  // Warn about unwinnable mafia/town ratio
+  const mafiaCount = state.roleConfig.mafia || 0;
+  const townCount = (state.roleConfig.villager || 0) + (state.roleConfig.doctor || 0) + (state.roleConfig.detective || 0);
+  if (mafiaCount >= townCount && playerCount >= 3) {
+    warnings.push('Mafia >= Town! Add more players or reduce Mafia.');
+  }
   return warnings;
 }
 
 function canStart() {
-  const allPlayers = getAllPlayers();
+  const playerCount = getLobbyPlayerCount();
   const humans = state.players.filter(p => !p.isBot);
-  if (allPlayers.length < 3) return false;
+  if (playerCount < 3) return false;
   if (state.screen === 'multi_lobby' && humans.length === 0) return false;
   if (state.roleConfig.villager < 0) return false;
+  // Prevent unwinnable games: mafia must be less than town
+  const mafiaCount = state.roleConfig.mafia || 0;
+  const townCount = (state.roleConfig.villager || 0) + (state.roleConfig.doctor || 0) + (state.roleConfig.detective || 0);
+  if (mafiaCount >= townCount) return false;
   return true;
 }
 
 function getStartBlockReason() {
-  const allPlayers = getAllPlayers();
+  const playerCount = getLobbyPlayerCount();
   const humans = state.players.filter(p => !p.isBot);
-  if (allPlayers.length < 3) return `Need 3+ players (${allPlayers.length})`;
+  if (playerCount < 3) return `Need 3+ players (${playerCount})`;
   if (state.screen === 'solo_lobby' && !state.soloPlayerName.trim()) return 'Enter your name';
   if (state.screen === 'multi_lobby' && humans.length === 0) return 'Need at least 1 human';
   if (state.roleConfig.villager < 0) return 'Too many special roles!';
+  // Prevent unwinnable games: mafia must be less than town
+  const mafiaCount = state.roleConfig.mafia || 0;
+  const townCount = (state.roleConfig.villager || 0) + (state.roleConfig.doctor || 0) + (state.roleConfig.detective || 0);
+  if (mafiaCount >= townCount) return 'Mafia cannot equal or outnumber Town!';
   return null;
 }
 
@@ -311,21 +337,21 @@ function removePlayer(id) {
 
 function adjustRole(role, delta) {
   const newValue = Math.max(0, (state.roleConfig[role] || 0) + delta);
-  const allPlayers = getAllPlayers();
+  const playerCount = getLobbyPlayerCount();
   const otherTotal = getTotalRoles() - (state.roleConfig[role] || 0);
   const newTotal = otherTotal + newValue;
 
-  if (delta > 0 && newTotal > allPlayers.length && state.roleConfig.villager <= 0) return;
+  if (delta > 0 && newTotal > playerCount && state.roleConfig.villager <= 0) return;
 
   state.roleConfig[role] = newValue;
-  state.roleConfig.villager = Math.max(0, allPlayers.length - state.roleConfig.mafia - state.roleConfig.doctor - state.roleConfig.detective);
+  state.roleConfig.villager = Math.max(0, playerCount - state.roleConfig.mafia - state.roleConfig.doctor - state.roleConfig.detective);
   render();
 }
 
 function isPlusDisabled(role) {
-  const allPlayers = getAllPlayers();
+  const playerCount = getLobbyPlayerCount();
   const total = getTotalRoles();
-  return total >= allPlayers.length && state.roleConfig.villager <= 0;
+  return total >= playerCount && state.roleConfig.villager <= 0;
 }
 
 // -----------------------------------------------------------------------------
@@ -516,6 +542,7 @@ function processMorning() {
   const target = allPlayers.find(p => p.id === state.nightTarget);
   const saved = allPlayers.find(p => p.id === state.doctorSave);
   let deathMessage = '';
+  let deathContext = null;
 
   if (target && state.nightTarget !== state.doctorSave) {
     if (target.isBot) {
@@ -524,17 +551,33 @@ function processMorning() {
       state.players = state.players.map(p => p.id === target.id ? { ...p, alive: false } : p);
     }
     deathMessage = `${target.name} was found dead.\n\nThey were the ${ROLES[target.role].name}.`;
+    deathContext = {
+      type: 'night',
+      victim: target.name,
+      role: ROLES[target.role].name,
+      saved: false
+    };
   } else if (state.nightTarget && state.doctorSave && state.nightTarget === state.doctorSave) {
     deathMessage = `${saved?.name} was attacked but survived!\n\nThe doctor saved them.`;
+    deathContext = {
+      type: 'night',
+      victim: saved?.name,
+      saved: true
+    };
   } else {
     deathMessage = 'The night passed peacefully.';
+    deathContext = {
+      type: 'night',
+      victim: null,
+      saved: false
+    };
   }
 
   state.nightTarget = null;
   state.mafiaVotes = {};
   state.doctorSave = null;
 
-  if (!checkWin()) {
+  if (!checkWin(deathContext)) {
     state.announcement = deathMessage;
     state.gamePhase = 'announcement';
     render();
@@ -567,6 +610,7 @@ function processVote() {
 
   const sorted = Object.entries(voteCounts).sort((x, y) => y[1] - x[1]);
   let voteMessage = '';
+  let deathContext = null;
 
   if (sorted.length > 0 && (sorted.length === 1 || sorted[0][1] > (sorted[1]?.[1] || 0))) {
     const eliminated = allPlayers.find(p => p.id === sorted[0][0]);
@@ -577,16 +621,25 @@ function processVote() {
         state.players = state.players.map(p => p.id === eliminated.id ? { ...p, alive: false } : p);
       }
       voteMessage = `Vote decided.\n\n${eliminated.name} eliminated.\n\nThey were the ${ROLES[eliminated.role].name}.`;
+      deathContext = {
+        type: 'vote',
+        victim: eliminated.name,
+        role: ROLES[eliminated.role].name
+      };
     }
   } else {
     voteMessage = 'Vote tied. No one eliminated.';
+    deathContext = {
+      type: 'vote',
+      victim: null
+    };
   }
 
   state.votes = {};
   state.nightPlans = {};
   state.intelResults = {};
 
-  if (!checkWin()) {
+  if (!checkWin(deathContext)) {
     state.announcement = voteMessage;
     state.gamePhase = 'vote_announcement';
     render();
@@ -616,15 +669,21 @@ function afterVoteAnnouncement() {
 // WIN CONDITION
 // -----------------------------------------------------------------------------
 
-function checkWin() {
+function checkWin(deathContext = null) {
   const alivePlayers = getAlivePlayers();
   const mafiaAlive = alivePlayers.filter(p => p.role === 'mafia').length;
   const townAlive = alivePlayers.filter(p => p.role !== 'mafia').length;
   const humansAlive = alivePlayers.filter(p => !p.isBot).length;
 
+  // Store the death context if provided (who died and how)
+  if (deathContext) {
+    state.finalDeath = deathContext;
+  }
+
   // All humans dead = mafia wins
   if (state.screen === 'game' && humansAlive === 0) {
     state.winner = 'mafia';
+    state.winReason = 'All human players have been eliminated. The Mafia takes control!';
     state.gamePhase = 'gameover';
     render();
     return true;
@@ -633,6 +692,7 @@ function checkWin() {
   // No mafia = town wins
   if (mafiaAlive === 0) {
     state.winner = 'town';
+    state.winReason = 'All Mafia members have been eliminated. The Town is safe!';
     state.gamePhase = 'gameover';
     render();
     return true;
@@ -641,6 +701,7 @@ function checkWin() {
   // Mafia >= town = mafia wins
   if (mafiaAlive >= townAlive) {
     state.winner = 'mafia';
+    state.winReason = `The Mafia (${mafiaAlive}) now equals or outnumbers the Town (${townAlive}). They have taken control!`;
     state.gamePhase = 'gameover';
     render();
     return true;
@@ -750,6 +811,8 @@ window.newGame = () => {
   state.players = [];
   state.bots = [];
   state.winner = null;
+  state.winReason = null;
+  state.finalDeath = null;
   state.gamePhase = 'reveal';
   state.nightPlans = {};
   state.votes = {};

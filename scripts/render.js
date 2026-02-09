@@ -285,10 +285,40 @@ function renderGame() {
 
   // Game over
   if (state.gamePhase === 'gameover') {
+    // Build the final death message
+    let finalDeathMessage = '';
+    if (state.finalDeath) {
+      if (state.finalDeath.type === 'night') {
+        if (state.finalDeath.saved) {
+          finalDeathMessage = `${state.finalDeath.victim} was attacked but saved by the Doctor.`;
+        } else if (state.finalDeath.victim) {
+          finalDeathMessage = `${state.finalDeath.victim} (${state.finalDeath.role}) was killed during the night.`;
+        } else {
+          finalDeathMessage = 'The night passed peacefully.';
+        }
+      } else if (state.finalDeath.type === 'vote') {
+        if (state.finalDeath.victim) {
+          finalDeathMessage = `${state.finalDeath.victim} (${state.finalDeath.role}) was eliminated by vote.`;
+        } else {
+          finalDeathMessage = 'The vote was tied. No one was eliminated.';
+        }
+      }
+    }
+
     content = `
       <div class="gameover-container card">
         <div class="gameover-icon">${state.winner === 'town' ? '🎉' : '💀'}</div>
         <div class="gameover-title">${state.winner === 'town' ? 'Town Wins!' : 'Mafia Wins!'}</div>
+        ${finalDeathMessage ? `
+          <div class="gameover-death" style="color:var(--text-secondary);margin-bottom:12px;font-size:0.95rem">
+            ${finalDeathMessage}
+          </div>
+        ` : ''}
+        ${state.winReason ? `
+          <div class="gameover-reason" style="color:${state.winner === 'town' ? '#4ade80' : '#f87171'};margin-bottom:16px;font-weight:500;text-align:center;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px">
+            ${state.winReason}
+          </div>
+        ` : ''}
         <div class="gameover-roles">
           ${allPlayers.map(p => `
             <span class="gameover-role" style="background:${ROLES[p.role]?.color}40">${ROLES[p.role]?.icon} ${p.name}</span>
@@ -819,7 +849,14 @@ function attachEventListeners() {
   const soloInput = document.getElementById('soloNameInput');
   if (soloInput) {
     soloInput.addEventListener('input', e => {
+      const hadName = state.soloPlayerName.trim().length > 0;
       state.soloPlayerName = e.target.value;
+      const hasName = state.soloPlayerName.trim().length > 0;
+      // Update role config when name presence changes (affects player count)
+      if (hadName !== hasName) {
+        updateRoleConfig();
+        render();
+      }
     });
     soloInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') e.target.blur();
