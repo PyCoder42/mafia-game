@@ -3,6 +3,14 @@
 // =============================================================================
 
 // -----------------------------------------------------------------------------
+// HELPERS
+// -----------------------------------------------------------------------------
+
+function isSoloMode() {
+  return state.players.length === 1 && state.bots.length > 0;
+}
+
+// -----------------------------------------------------------------------------
 // MAIN RENDER
 // -----------------------------------------------------------------------------
 
@@ -204,8 +212,8 @@ function renderRoleConfig(allPlayers, total, warnings) {
       <div class="section-label">⚖️ Role Balance</div>
       <div class="grid-2" style="margin-bottom:16px">
         ${ROLE_PRESETS.map(p => `
-          <div class="preset-card ${state.selectedPreset.id === p.id ? 'selected' : ''}"
-               style="${state.selectedPreset.id === p.id ? `border-color:${p.color};background:${p.color}20` : ''}"
+          <div class="preset-card ${state.selectedPreset?.id === p.id ? 'selected' : ''}"
+               style="${state.selectedPreset?.id === p.id ? `border-color:${p.color};background:${p.color}20` : ''}"
                onclick="selectPreset('${p.id}')">
             <div class="preset-name" style="color:${p.color}">${p.name}</div>
             <div class="preset-desc">${p.description}</div>
@@ -447,7 +455,8 @@ function renderDayPhase(current, allPlayers) {
     `;
   }
 
-  if (!state.showRole) {
+  // In solo mode, skip the turn prompt - go straight to planning
+  if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
         <div style="font-size:1.25rem;margin-bottom:16px">📲 <strong>${current.name}</strong>'s turn</div>
@@ -563,7 +572,8 @@ function renderNightPhase(current, alivePlayers) {
     `;
   }
 
-  if (!state.showRole) {
+  // In solo mode, skip the turn prompt - go straight to target selection
+  if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
         <div style="font-size:1.25rem;margin-bottom:8px">🎭 <strong>${current.name}</strong> (Mafia)</div>
@@ -706,7 +716,8 @@ function renderVotePhase(current, alivePlayers) {
     `;
   }
 
-  if (!state.showRole) {
+  // In solo mode, skip the turn prompt - go straight to voting
+  if (!state.showRole && !isSoloMode()) {
     return `
       <div class="card" style="text-align:center">
         <div style="font-size:1.25rem;margin-bottom:16px">⚖️ <strong>${current.name}</strong>'s turn</div>
