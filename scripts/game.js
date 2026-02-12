@@ -207,10 +207,90 @@ function getCurrentPlayer() {
 
 function calculateRolesFromPreset(preset, count) {
   if (count < 3) return { mafia: 0, doctor: 0, detective: 0, villager: 0 };
-  const mafia = Math.max(1, Math.round(count * preset.mafia / 100));
-  // Doctor can be 0 if preset explicitly sets it to 0, otherwise at least 1
-  const doctor = preset.doctor === 0 ? 0 : Math.max(1, Math.round(count * preset.doctor / 100));
-  const detective = count >= 5 ? Math.max(0, Math.round(count * preset.detective / 100)) : 0;
+
+  // Use tier-based scaling for better balance at different player counts
+  // Each preset has distinct scaling characteristics
+  let mafia, doctor, detective;
+
+  if (preset.id === 'classic') {
+    // Classic: Balanced gameplay, more doctors than detectives at high counts
+    if (count <= 4) {
+      mafia = 1; doctor = 1; detective = 0;
+    } else if (count <= 6) {
+      mafia = 1; doctor = 1; detective = 1;
+    } else if (count <= 9) {
+      mafia = 2; doctor = 2; detective = 1;
+    } else if (count <= 12) {
+      mafia = 3; doctor = 2; detective = 1;
+    } else if (count <= 15) {
+      mafia = 3; doctor = 2; detective = 2;
+    } else {
+      // 16+ players: scale proportionally
+      mafia = Math.floor(count * 0.2);
+      doctor = Math.floor(count * 0.13);
+      detective = Math.floor(count * 0.1);
+    }
+  } else if (preset.id === 'brutal') {
+    // Brutal: High mafia ratio, more detectives than doctors to compensate
+    if (count <= 4) {
+      mafia = 1; doctor = 1; detective = 0;
+    } else if (count <= 6) {
+      mafia = 2; doctor = 1; detective = 1;
+    } else if (count <= 9) {
+      mafia = 3; doctor = 1; detective = 2;
+    } else if (count <= 12) {
+      mafia = 4; doctor = 1; detective = 2;
+    } else if (count <= 15) {
+      mafia = 5; doctor = 2; detective = 3;
+    } else {
+      // 16+ players: scale proportionally
+      mafia = Math.floor(count * 0.3);
+      doctor = Math.floor(count * 0.08);
+      detective = Math.floor(count * 0.15);
+    }
+  } else if (preset.id === 'chaos') {
+    // Chaos: Nearly half mafia, very few doctors - high difficulty for town
+    if (count <= 4) {
+      mafia = 1; doctor = 0; detective = 0;
+    } else if (count <= 6) {
+      mafia = 2; doctor = 1; detective = 0;
+    } else if (count <= 9) {
+      mafia = 3; doctor = 1; detective = 1;
+    } else if (count <= 12) {
+      mafia = 5; doctor = 1; detective = 1;
+    } else if (count <= 15) {
+      mafia = 6; doctor = 1; detective = 2;
+    } else {
+      // 16+ players: scale proportionally
+      mafia = Math.floor(count * 0.4);
+      doctor = Math.floor(count * 0.06);
+      detective = Math.floor(count * 0.1);
+    }
+  } else if (preset.id === 'detective') {
+    // Mystery: Extra investigators, balanced mafia
+    if (count <= 4) {
+      mafia = 1; doctor = 1; detective = 1;
+    } else if (count <= 6) {
+      mafia = 1; doctor = 1; detective = 2;
+    } else if (count <= 9) {
+      mafia = 2; doctor = 1; detective = 2;
+    } else if (count <= 12) {
+      mafia = 3; doctor = 2; detective = 3;
+    } else if (count <= 15) {
+      mafia = 3; doctor = 2; detective = 4;
+    } else {
+      // 16+ players: scale proportionally
+      mafia = Math.floor(count * 0.2);
+      doctor = Math.floor(count * 0.1);
+      detective = Math.floor(count * 0.2);
+    }
+  } else {
+    // Fallback to percentage-based calculation for unknown presets
+    mafia = Math.max(1, Math.round(count * preset.mafia / 100));
+    doctor = preset.doctor === 0 ? 0 : Math.max(1, Math.round(count * preset.doctor / 100));
+    detective = count >= 5 ? Math.max(0, Math.round(count * preset.detective / 100)) : 0;
+  }
+
   return {
     mafia,
     doctor,
