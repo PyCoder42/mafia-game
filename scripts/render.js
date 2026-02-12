@@ -524,7 +524,33 @@ function renderDayPhase(current, allPlayers) {
         </div>
       ` : ''}
 
-      <button class="btn btn-primary btn-full btn-lg" onclick="confirmDayPlan()" ${!state.selectedLocation || !state.selectedAction ? 'disabled' : ''}>
+      ${location && location.canLock && state.selectedAction && !isMafia ? `
+        <div class="section-label">3. What about your door?</div>
+        <div class="door-options">
+          <div class="door-option ${state.selectedDoorOption === 'lock' ? 'selected' : ''}" onclick="selectDoorOption('lock')">
+            <div class="door-option-header">
+              <span class="door-option-name">🔒 Lock door</span>
+              <div class="door-option-stats">
+                <span class="intel-low">-20% Intel</span>
+                <span class="risk-low">-1 Risk</span>
+              </div>
+            </div>
+            <div class="door-option-desc">Safer, but you might miss important sounds</div>
+          </div>
+          <div class="door-option ${state.selectedDoorOption === 'listen' ? 'selected' : ''}" onclick="selectDoorOption('listen')">
+            <div class="door-option-header">
+              <span class="door-option-name">👂 Leave open to listen</span>
+              <div class="door-option-stats">
+                <span class="intel-high">+15% Intel</span>
+                <span class="risk-high">+1 Risk</span>
+              </div>
+            </div>
+            <div class="door-option-desc">Risky, but you might hear something useful</div>
+          </div>
+        </div>
+      ` : ''}
+
+      <button class="btn btn-primary btn-full btn-lg" onclick="confirmDayPlan()" ${!state.selectedLocation || !state.selectedAction || (location?.canLock && !isMafia && !state.selectedDoorOption) ? 'disabled' : ''}>
         Confirm Plan
       </button>
     </div>
@@ -577,24 +603,22 @@ function renderNightPhase(current, alivePlayers) {
 
       <div class="section-label" style="color:#f87171">🎯 Choose your target</div>
 
-      <div style="margin-bottom:16px">
+      <div class="target-list">
         ${targets.map(p => {
           const plan = state.nightPlans[p.id];
           return `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:rgba(50,50,70,0.5);border-radius:8px;margin-bottom:8px">
-              <span>${p.isBot ? '🤖' : '👤'} ${p.name}</span>
-              <span style="font-size:0.85rem;color:var(--text-secondary)">${plan?.locationName || 'Unknown'}</span>
+            <div class="target-card ${state.selectedTarget === p.id ? 'selected' : ''}" onclick="selectTarget('${p.id}')">
+              <div class="target-info">
+                <div class="target-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div>
+                <div class="target-details">
+                  <span class="target-location">📍 ${plan?.locationName || 'Unknown'}</span>
+                  ${plan?.actionName ? `<span class="target-action">→ ${plan.actionName}</span>` : ''}
+                </div>
+              </div>
+              <div class="target-kill-btn">🎯 Kill</div>
             </div>
           `;
         }).join('')}
-      </div>
-
-      <div class="target-grid">
-        ${targets.map(p => `
-          <button class="target-btn ${state.selectedTarget === p.id ? 'selected' : ''}" onclick="selectTarget('${p.id}')">
-            ${p.isBot ? '🤖 ' : ''}${p.name}
-          </button>
-        `).join('')}
       </div>
 
       <button class="btn btn-danger btn-full btn-lg" onclick="confirmMafiaTarget()" ${!state.selectedTarget ? 'disabled' : ''}>

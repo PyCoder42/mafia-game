@@ -326,6 +326,18 @@ h2 {
 .target-btn:hover { background: rgba(70, 70, 90, 0.8); }
 .target-btn.selected { background: rgba(124, 58, 237, 0.4); border-color: var(--purple-accent); }
 
+/* Mafia Target List */
+.target-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.target-card { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(50, 50, 70, 0.6); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: all 0.2s; }
+.target-card:hover { background: rgba(70, 70, 90, 0.8); border-color: #f87171; }
+.target-card.selected { background: rgba(220, 38, 38, 0.3); border-color: #f87171; }
+.target-info { display: flex; flex-direction: column; gap: 4px; }
+.target-name { font-weight: 600; font-size: 1rem; }
+.target-details { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); }
+.target-location { color: #a5b4fc; }
+.target-action { color: #fde047; }
+.target-kill-btn { padding: 6px 12px; background: rgba(220, 38, 38, 0.4); border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: #fca5a5; }
+
 /* Role Counter */
 .role-counter { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px; }
 .role-counter-item { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.85rem; }
