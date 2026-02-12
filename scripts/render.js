@@ -150,7 +150,7 @@ function renderMultiLobby() {
           ${state.players.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:12px">No players yet</div>' : ''}
         </div>
         <div class="input-row">
-          <input type="text" class="input ${state.nameError ? 'input-error' : ''}" id="newPlayerInput" placeholder="Add player name..."/>
+          <input type="text" class="input ${state.nameError ? 'input-error' : ''}" id="newPlayerInput" placeholder="Add player name..." onkeypress="if(event.key==='Enter')addPlayerFromInput()"/>
           <button class="btn btn-primary btn-small" onclick="addPlayerFromInput()">Add</button>
         </div>
         ${state.nameError ? `<div class="error-msg">${state.nameError}</div>` : ''}
