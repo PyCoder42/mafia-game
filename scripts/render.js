@@ -466,19 +466,6 @@ function renderDayPhase(current, allPlayers) {
   const isMafia = current.role === 'mafia';
   const location = state.selectedStory.locations.find(l => l.id === state.selectedLocation);
 
-  // Build player location map for mafia
-  const otherPlans = isMafia
-    ? Object.entries(state.nightPlans).filter(([id]) => id !== current.id)
-    : [];
-  const playersByLocation = {};
-  otherPlans.forEach(([id, plan]) => {
-    const player = allPlayers.find(x => x.id === id);
-    if (player && plan.locationName) {
-      if (!playersByLocation[plan.locationName]) playersByLocation[plan.locationName] = [];
-      playersByLocation[plan.locationName].push(player);
-    }
-  });
-
   const sortedLocations = [...state.selectedStory.locations].sort((x, y) => (x.risk || 0) - (y.risk || 0));
 
   return `
@@ -488,35 +475,17 @@ function renderDayPhase(current, allPlayers) {
         <span>${current.name}</span>
       </div>
 
-      ${isMafia && Object.keys(playersByLocation).length > 0 ? `
-        <div class="mafia-intel">
-          <div class="mafia-intel-header">🎭 You see where others plan to go:</div>
-          ${Object.entries(playersByLocation).map(([loc, players]) => `
-            <div style="display:flex;justify-content:space-between;font-size:0.9rem">
-              <span style="color:var(--text-secondary)">${loc}:</span>
-              <span>${players.map(p => p.name).join(', ')}</span>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-
       <div class="section-label">1. Where will you be tonight?</div>
       <div class="location-grid">
-        ${sortedLocations.map(l => {
-          const playersHere = playersByLocation[l.name] || [];
-          return `
+        ${sortedLocations.map(l => `
             <div class="location-card ${state.selectedLocation === l.id ? 'selected' : ''}" onclick="selectLocation('${l.id}')">
               <div class="location-header">
                 <span class="location-name">${l.name}</span>
                 <span class="risk-badge risk-${l.risk || 0}">Risk ${l.risk || 0}</span>
               </div>
               ${l.canLock ? '<span style="font-size:0.8rem;color:#4ade80">🔒 Can lock</span>' : ''}
-              ${isMafia && playersHere.length > 0 ? `
-                <div style="font-size:0.8rem;color:#fca5a5;margin-top:4px">${playersHere.length} player${playersHere.length > 1 ? 's' : ''} here</div>
-              ` : ''}
             </div>
-          `;
-        }).join('')}
+          `).join('')}
       </div>
 
       ${location ? `
