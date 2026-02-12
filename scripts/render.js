@@ -55,9 +55,7 @@ function renderSetup() {
 // -----------------------------------------------------------------------------
 
 function renderSoloLobby() {
-  const allPlayers = state.soloPlayerName.trim()
-    ? [{ name: state.soloPlayerName }].concat(state.bots)
-    : state.bots;
+  const allPlayers = getAllPlayers();
   const total = getTotalRoles();
   const warnings = getStartWarnings();
   const blockReason = getStartBlockReason();

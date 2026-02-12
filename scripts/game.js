@@ -189,6 +189,10 @@ const state = {
 // -----------------------------------------------------------------------------
 
 function getAllPlayers() {
+  // In solo lobby, include the solo player name as a player
+  if (state.screen === 'solo_lobby' && state.soloPlayerName.trim() && state.players.length === 0) {
+    return [{ name: state.soloPlayerName.trim(), isBot: false }, ...state.bots];
+  }
   return [...state.players, ...state.bots];
 }
 
