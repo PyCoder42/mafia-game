@@ -10,6 +10,22 @@ function isSoloMode() {
   return state.players.length === 1 && state.bots.length > 0;
 }
 
+function getRiskClass(risk) {
+  // Risk is 0-5 scale, convert to percentage for class determination
+  const pct = (risk / 5) * 100;
+  if (pct <= 30) return 'risk-low';
+  if (pct <= 60) return 'risk-medium';
+  return 'risk-high';
+}
+
+function getIntelClass(intel) {
+  // Intel is 0-1 scale (percentage as decimal)
+  const pct = intel * 100;
+  if (pct <= 30) return 'intel-low';
+  if (pct <= 60) return 'intel-medium';
+  return 'intel-high';
+}
+
 // -----------------------------------------------------------------------------
 // MAIN RENDER
 // -----------------------------------------------------------------------------
@@ -497,8 +513,8 @@ function renderDayPhase(current, allPlayers) {
                 <span class="action-name">${ac.name}</span>
                 ${!isMafia ? `
                   <div class="action-stats">
-                    <span style="color:${ac.intel >= 0.5 ? '#60a5fa' : 'var(--text-secondary)'}">Intel ${Math.round((ac.intel || 0) * 100)}%</span>
-                    <span style="color:${ac.risk >= 3 ? '#f87171' : 'var(--text-secondary)'}">Risk ${ac.risk || 0}</span>
+                    <span class="${getIntelClass(ac.intel || 0)}">Intel ${Math.round((ac.intel || 0) * 100)}%</span>
+                    <span class="${getRiskClass(ac.risk || 0)}">Risk ${ac.risk || 0}</span>
                   </div>
                 ` : ''}
               </div>

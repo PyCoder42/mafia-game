@@ -304,6 +304,11 @@ h2 {
 .action-stats { display: flex; gap: 12px; font-size: 0.8rem; }
 .action-desc { font-size: 0.85rem; color: var(--text-secondary); }
 
+/* Risk/Intel color coding */
+.risk-low, .intel-low { color: #16a34a; }
+.risk-medium, .intel-medium { color: #ca8a04; }
+.risk-high, .intel-high { color: #dc2626; }
+
 /* Intel */
 .intel-box { background: rgba(161, 98, 7, 0.2); border: 1px solid #a16207; border-radius: 10px; padding: 12px; margin-bottom: 16px; }
 .intel-header { color: #fde047; font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; }
