@@ -1,136 +1,197 @@
 # Mafia Game
 
-A browser-based implementation of the classic Mafia party game with location-based gameplay mechanics.
+A browser-based Mafia party game with location-based gameplay and an intel/risk system.
 
-## Project Structure
+**Repo:** https://github.com/PyCoder42/mafia-game
+
+---
+
+## Quick Start
+
+```bash
+cd mafia-game
+python3 -m http.server 8000
+# Open http://localhost:8000
+```
+
+---
+
+## Project Files
 
 ```
 mafia-game/
-├── index.html          # Main entry point
-├── styles/
-│   └── main.css        # All CSS styles
+├── index.html           # Entry point
+├── styles/main.css      # All styles
 ├── scripts/
-│   ├── game.js         # Game logic, state management, event handlers
-│   └── render.js       # All rendering/UI functions
-├── venv/               # Python virtual environment (for dev server)
-├── .gitignore
-└── CLAUDE.md           # This file
+│   ├── game.js          # Game logic, state, event handlers
+│   └── render.js        # UI rendering functions
+├── CLAUDE.md            # This file (project overview)
+├── INSTRUCTIONS.md      # Game rules for players
+├── TODOS.md             # Ordered task list
+├── TESTING_LOG.md       # Test session logs
+└── venv/                # Python dev server
 ```
+
+**Note:** `original.html` is an old single-file version. Can be deleted.
+
+---
 
 ## Tech Stack
 
-- **Frontend**: Vanilla JavaScript (no framework)
-- **Styling**: CSS3 with CSS custom properties (variables)
-- **Fonts**: Google Fonts (Playfair Display, Crimson Text)
-- **No build step required** - runs directly in browser
+- Vanilla JavaScript (no framework)
+- CSS3 with custom properties
+- Google Fonts (Playfair Display, Crimson Text)
+- No build step - runs directly in browser
+
+---
 
 ## Architecture
 
-### State Management
-Single global `state` object in `game.js` holds all game data:
-- Screen/phase tracking
-- Player/bot lists
-- Role configurations
-- Night plans, votes, intel results
-- UI state (modals, selections)
+### State (`game.js`)
 
-### Rendering
-Pure functions in `render.js` that generate HTML strings:
-- `render()` - main dispatcher based on `state.screen`
-- `renderSetup()`, `renderSoloLobby()`, `renderMultiLobby()` - lobby screens
-- `renderGame()` - game screen with phase-specific sub-renderers
-- Phase renderers: `renderRevealPhase()`, `renderDayPhase()`, `renderNightPhase()`, etc.
+Single global `state` object holds everything:
+- `screen` - Current screen (setup, solo_lobby, multi_lobby, game)
+- `gamePhase` - Current phase (reveal, day, night, morning_doctor, announcement, discussion, vote, vote_announcement, gameover)
+- `players[]`, `bots[]` - Player/bot arrays with {id, name, role, alive, isBot}
+- `roleConfig` - {mafia, doctor, detective, villager} counts
+- `nightPlans{}`, `votes{}`, `intelResults{}` - Per-round data
+- `winner`, `winReason`, `finalDeath` - End game state
 
-### Event Handling
-Global functions attached to `window` for onclick handlers:
-- Navigation: `goToSetup()`, `goToSoloLobby()`, etc.
-- Player management: `addBot()`, `removeBot()`, `addPlayer()`
-- Game actions: `selectLocation()`, `selectAction()`, `confirmDayPlan()`
+### Rendering (`render.js`)
 
-## Game Mechanics
+Pure functions that return HTML strings:
+- `render()` - Main dispatcher
+- `renderSetup()`, `renderSoloLobby()`, `renderMultiLobby()` - Lobby screens
+- `renderGame()` - Game screen dispatcher
+- `renderRevealPhase()`, `renderDayPhase()`, `renderNightPhase()`, etc. - Phase screens
 
-### Roles
-- **Villager**: Basic town role, survives and votes
-- **Mafia**: Knows teammates, eliminates one player per night
-- **Doctor**: Can save one player from death each night
-- **Detective**: Higher intel gathering from actions
+### Event Handlers (`game.js`)
 
-### Game Flow
-1. **Role Reveal** - Each player sees their role
-2. **Day** - Players choose location + action for the night
-3. **Night** - Mafia chooses target, actions resolve
-4. **Morning** - Doctor saves (if applicable), death announced
-5. **Discussion** - Players share intel, discuss
-6. **Vote** - Majority vote eliminates one player
+Global functions on `window`:
+- Navigation: `goToSetup()`, `goToSoloLobby()`, `goToMultiLobby()`
+- Players: `addBot()`, `removeBot()`, `addPlayer()`, `removePlayer()`
+- Game: `selectLocation()`, `selectAction()`, `confirmDayPlan()`, `confirmVote()`
+- Modals: `showInstructions()`, `showSettings()`, `hideInstructions()`, `hideSettings()`
+
+---
+
+## Game Flow
+
+1. **Role Reveal** - Each player sees their role (Mafia see teammates)
+2. **Day** - Choose location + action for the night
+3. **Night** - Mafia picks target, actions resolve
+4. **Morning** - Doctor saves (maybe), death announced
+5. **Discussion** - Share intel, accuse, defend
+6. **Vote** - Majority eliminates one player
 7. Repeat until win condition
 
-### Intel System
-- Actions have `intel` (0-1) and `risk` (0-5) values
-- Higher intel = better chance to learn info
-- Being at same location as murder = chance to witness
-- Risk correlates with exposure to danger
+### Win Conditions
+- **Town wins:** All Mafia eliminated
+- **Mafia wins:** Mafia >= Town count
 
-## Development
+---
 
-### Running Locally
-```bash
-# Option 1: Python server
-cd mafia-game
-python3 -m http.server 8000
+## Roles
 
-# Option 2: Any static server
-npx serve .
-```
+| Role | Description |
+|------|-------------|
+| Villager | Basic town, votes and gathers intel |
+| Mafia | Knows teammates, kills at night |
+| Doctor | Can save one player each morning |
+| Detective | Better intel gathering, harder to catch |
 
-Then open http://localhost:8000
+---
 
-### Virtual Environment
-```bash
-# Activate
-source venv/bin/activate
+## Intel/Risk System
 
-# Install pip (if needed)
-python3 -m ensurepip --upgrade
+Actions have:
+- `intel` (0-1) - Chance to learn something
+- `risk` (0-5) - Danger level
 
-# Deactivate
-deactivate
-```
+Locations have base risk. Being where the murder happens = chance to witness. Detectives get bonuses.
 
-## Key Patterns
+---
 
-### Adding New Locations
-Add to `STORY_PRESETS[].locations[]` in `game.js`:
+## Key Code Patterns
+
+### Adding a Location
+
+In `game.js`, add to `STORY_PRESETS[].locations[]`:
 ```js
 {
-  id: 'unique_id',
-  name: 'Display Name',
-  risk: 0-5,
-  canLock: true/false,
+  id: 'lounge',
+  name: 'Lounge',
+  risk: 2,
+  canLock: true,
   actions: [
-    { id: 'action_id', name: '🎯 Action Name', intel: 0-1, risk: 0-5, desc: 'Short description' }
+    { id: 'relax', name: '☕ Relax', intel: 0.1, risk: 1, desc: 'Low key' },
+    { id: 'snoop', name: '🔍 Snoop', intel: 0.6, risk: 4, desc: 'Risky' }
   ]
 }
 ```
 
-### Adding New Roles
-1. Add to `ROLES` constant in `game.js`
-2. Update `calculateRolesFromPreset()` if role should be auto-assigned
-3. Add UI controls in `renderRoleConfig()`
-4. Handle role-specific behavior in phase processors
+### Adding a Role
+
+1. Add to `ROLES` constant
+2. Update `calculateRolesFromPreset()` for auto-assignment
+3. Add UI in `renderRoleConfig()`
+4. Handle behavior in phase processors
 
 ### Styling
-CSS uses custom properties defined in `:root`:
-- `--bg-dark`, `--bg-card` - backgrounds
-- `--text-primary`, `--text-secondary` - text colors
-- `--purple-accent`, `--red-accent`, etc. - theme colors
 
-## TODO / Future Improvements
+CSS variables in `:root`:
+- `--bg-dark`, `--bg-card` - Backgrounds
+- `--text-primary`, `--text-secondary` - Text
+- `--purple-accent`, `--red-accent`, `--green-accent` - Colors
 
-- [ ] Add sound effects (settings placeholder exists)
-- [ ] AI narrator for atmosphere (settings placeholder exists)
-- [ ] Bot chat during discussion
-- [ ] Death animations
-- [ ] WebSocket multiplayer (currently pass-and-play)
-- [ ] Persistent game state (localStorage)
-- [ ] More story settings
-- [ ] Additional roles (Jester, Vigilante, etc.)
+---
+
+## Important Functions
+
+| Function | Purpose |
+|----------|---------|
+| `canStart()` | Validates game can begin |
+| `getStartWarnings()` | Returns warning messages |
+| `checkWin()` | Checks win conditions, sets winner |
+| `processNight()` | Resolves Mafia target |
+| `processMorning()` | Handles Doctor save, announces death |
+| `processVote()` | Tallies votes, eliminates player |
+| `botMakeDecisions()` | AI decision-making |
+
+---
+
+## Files for Tracking
+
+- **TODOS.md** - Ordered task list (bugs, features, polish)
+- **TESTING_LOG.md** - Test sessions and checklists
+- **INSTRUCTIONS.md** - Player-facing game rules
+
+---
+
+## Workflow
+
+### Fixing Errors
+When fixing bugs from TODOS.md, **spawn multiple agents in parallel** for independent fixes. Each agent handles one error, then results are reviewed together. This speeds up development.
+
+Example: If there are 3 bugs to fix, spawn 3 agents simultaneously rather than fixing sequentially.
+
+### Testing
+After fixes, run through TESTING_LOG.md checklist. Log results. Any new bugs go to TODOS.md (in priority order, not just at the end).
+
+---
+
+## Current Status
+
+### Working
+- Solo mode with bots
+- All game phases
+- Role reveal, day/night cycle, voting
+- Game balance validation (Mafia >= Town blocked)
+- Game ending explanations
+
+### Needs Work
+See `TODOS.md` for full list. Key items:
+- Solo mode UX improvements
+- Better role scaling for large games
+- Intel/risk display improvements
+- Multi-device multiplayer (WebSocket)
