@@ -18,12 +18,19 @@
   - Chaos: Very few doctors
 - [ ] **Rework Mystery and Chaos presets** - Current ones aren't great
 - [ ] **Deselect preset when customizing** - If you manually adjust roles, clear the preset selection
-- [ ] **Enter key in multiplayer** - Press Enter to add player instead of clicking button
 
 ## Intel & Risk System
 
+- [ ] **Mafia sees details** - What a person is doing should also be visible to the mafia and the people.
+- [ ] **Mafia only seen nearby people** - Only people near the mafia should be visible to them with their location in action. So you should have a floor plan and all.
 - [ ] **Risk/Intel display** - Show percentages with color gradient (green=low risk, yellow=medium, red=high)
-- [ ] **Location-based actions** - Actions should vary by location risk level, not be generic
+- [ ] **Location-based actions** - Actions should vary by location risk level, not be genericExamples from user:
+  - "hunt station" - actively searching for threats
+  - "create distraction" - draw attention away
+  - "lock pod" - secure yourself but get less intel
+  - "listen through door" - risky but more intel
+  - Sitting/smoking = very high risk
+  - Following someone suspicious = high risk, high intel
 - [ ] **Bring back lock/listen options** - "Lock pod" vs "listen through door" mechanics got lost somewhere
 - [ ] **Mafia vision** - Mafia should see who's around them and what they're doing
 - [ ] **Snoopers get intel** - People actively snooping should learn more
@@ -38,6 +45,8 @@
 
 ## Polish
 
+- [ ] **Enter key in multiplayer** - Press Enter to add player instead of clicking button
+- [ ] **Details of person next to person button** - Mafia chooses who to kill. The location of the person and also what they're doing should be in the same tile as the thing you can click to kill them.
 - [ ] **Sound effects** - Settings toggle exists but not implemented
 - [ ] **AI narrator** - Preset prompts for atmosphere (no API needed)
 - [ ] **Bot chat** - Simple preset messages like "I think this person is suspicious"

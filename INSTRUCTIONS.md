@@ -109,7 +109,7 @@ Coming soon: Join codes and real-time play across devices.
 
 ## Tips
 
-- **As Town:** Share your intel, but be careful who you trust
+- **As Villager:** Share your intel, but be careful who you trust
 - **As Mafia:** Blend in, point fingers at others, don't be too quiet or too loud
 - **As Doctor:** Save people who seem important, or save yourself
 - **As Detective:** Use your intel advantage, but you're still a target
