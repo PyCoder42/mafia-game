@@ -21,17 +21,17 @@ const STORY_TOWN_LABELS = {
 };
 
 const ROLE_PRESETS = [
-  { id: 'classic', name: 'Classic', description: 'Mafia-heavy baseline with support roles', mafia: 20, doctor: 10, detective: 10, color: '#22c55e' },
-  { id: 'brutal', name: 'Blood Moon', description: 'High mafia pressure and weak healing', mafia: 30, doctor: 8, detective: 6, color: '#f97316' },
-  { id: 'chaos', name: 'Aftershock', description: 'Noisy kills, swingy outcomes, high exposure', mafia: 28, doctor: 14, detective: 8, color: '#ef4444' },
-  { id: 'detective', name: 'Forensics', description: 'Detective-heavy deduction and stealth tracking', mafia: 18, doctor: 8, detective: 26, color: '#a855f7' }
+  { id: 'classic', name: 'Classic', description: 'Balanced default with strong Mafia pressure and steady support roles.', mafia: 20, doctor: 10, detective: 10, color: '#22c55e' },
+  { id: 'brutal', name: 'Blood Moon', description: 'Aggressive Mafia numbers with limited support and tense mornings.', mafia: 30, doctor: 8, detective: 6, color: '#f97316' },
+  { id: 'chaos', name: 'Crossfire', description: 'Volatile nights where loud strikes and mixed clues create chaos.', mafia: 28, doctor: 14, detective: 8, color: '#ef4444' },
+  { id: 'detective', name: 'Forensics', description: 'Investigation-heavy setup with stronger detective presence.', mafia: 18, doctor: 8, detective: 26, color: '#a855f7' }
 ];
 
 const KILL_METHODS = [
   {
     id: 'silent_blade',
     name: 'Silent Blade',
-    desc: 'Quiet strike with low noise.',
+    desc: 'Low disturbance. Harder for witnesses to spot, slightly easier to stabilize.',
     noise: 0.25,
     cureDifficulty: 0.72,
     deathLabel: 'deep stab wounds',
@@ -40,7 +40,7 @@ const KILL_METHODS = [
   {
     id: 'stranglehold',
     name: 'Stranglehold',
-    desc: 'Hands-on attack with moderate noise.',
+    desc: 'Moderate disturbance. Balanced visibility and survivability.',
     noise: 0.5,
     cureDifficulty: 0.66,
     deathLabel: 'airway trauma',
@@ -49,7 +49,7 @@ const KILL_METHODS = [
   {
     id: 'toxin',
     name: 'Toxin Dose',
-    desc: 'Delayed poison with subtle traces.',
+    desc: 'Very low disturbance. Hard to witness directly, easier to miss in real time.',
     noise: 0.18,
     cureDifficulty: 0.58,
     deathLabel: 'acute toxin exposure',
@@ -58,38 +58,11 @@ const KILL_METHODS = [
   {
     id: 'incendiary',
     name: 'Incendiary Burst',
-    desc: 'Loud and brutal; hardest to treat.',
+    desc: 'Extreme disturbance. Easier for others to notice, hardest to survive.',
     noise: 0.92,
     cureDifficulty: 0.86,
     deathLabel: 'severe burn trauma',
     evidenceHint: 'a sudden flash and heat'
-  }
-];
-
-const DOCTOR_MEDICINES = [
-  {
-    id: 'trauma_kit',
-    name: 'Trauma Kit',
-    desc: 'Prioritizes bleeding and crush injuries.',
-    methodBoost: { silent_blade: 0.2, stranglehold: 0.17, toxin: -0.08, incendiary: -0.14 }
-  },
-  {
-    id: 'airway_pack',
-    name: 'Airway Pack',
-    desc: 'Best against breathing-related attacks.',
-    methodBoost: { silent_blade: -0.02, stranglehold: 0.23, toxin: -0.05, incendiary: -0.1 }
-  },
-  {
-    id: 'antidote_case',
-    name: 'Antidote Case',
-    desc: 'Countermeasures for toxins and chemicals.',
-    methodBoost: { silent_blade: -0.08, stranglehold: -0.04, toxin: 0.26, incendiary: -0.05 }
-  },
-  {
-    id: 'burn_protocol',
-    name: 'Burn Protocol',
-    desc: 'Stabilization gear for fire trauma.',
-    methodBoost: { silent_blade: -0.1, stranglehold: -0.08, toxin: -0.04, incendiary: 0.24 }
   }
 ];
 
@@ -99,7 +72,7 @@ const STORY_PRESETS = [
     name: 'Blackwood Estate',
     intro: 'Thunder rolls over the moors...',
     mood: 'A Victorian mansion shrouded in secrets.',
-    setting: 'Bedroom wing, veranda, foyer, library stacks, cellar and garden paths.',
+    setting: 'Old guest corridors feed into a foyer, veranda, parlor, kitchen routes, and deep cellar stairs where sound travels strangely.',
     narrationPack: 'gothic'
   },
   {
@@ -107,7 +80,7 @@ const STORY_PRESETS = [
     name: 'Midnight Express',
     intro: 'The train plunges through a blizzard...',
     mood: 'A luxury train with secrets.',
-    setting: 'Cabin row, corridor, lounge, baggage hold, engine walkway, service car.',
+    setting: 'Cabins, linked corridors, lounge traffic, service passages, and exposed exterior platforms create shifting lines of sight.',
     narrationPack: 'noir'
   },
   {
@@ -115,7 +88,7 @@ const STORY_PRESETS = [
     name: 'Coral Bay Resort',
     intro: 'Paradise turns to prison...',
     mood: 'A tropical resort turned nightmare.',
-    setting: 'Bungalow row, porches over the beach, jungle edge, dock, clinic, lighthouse.',
+    setting: 'Bungalow rows and porches overlook the beach while trails split toward the dock, clinic, jungle edge, and lighthouse ridge.',
     narrationPack: 'tropical_horror'
   },
   {
@@ -123,12 +96,33 @@ const STORY_PRESETS = [
     name: 'Station Prometheus',
     intro: 'Life support failing...',
     mood: 'A research station at the edge of space.',
-    setting: 'Sleep pod deck, surveillance bay, central hub, cargo hold, ring and airlock.',
+    setting: 'Sleep pods and surveillance routes connect through a central hub to medbay, cargo logistics, reactor tunnels, the observation ring, and the airlock.',
     narrationPack: 'sci_fi'
   }
 ];
 
 const BOT_NAMES = ['Alex', 'Jordan', 'Casey', 'Morgan', 'Riley', 'Quinn', 'Avery', 'Parker', 'Sage', 'Blake', 'Drew', 'Reese'];
+
+const NIGHT_AWARENESS_OPTIONS = [
+  {
+    id: 'low_profile',
+    name: 'Keep a low profile',
+    desc: 'Stay quiet and reduce the chance of getting noticed.',
+    exposureMod: -0.1
+  },
+  {
+    id: 'listen_posts',
+    name: 'Listen at nearby routes',
+    desc: 'Moderate awareness with balanced safety and clue quality.',
+    exposureMod: 0
+  },
+  {
+    id: 'active_watch',
+    name: 'Actively watch movement',
+    desc: 'Higher exposure but stronger chance to catch useful clues.',
+    exposureMod: 0.12
+  }
+];
 
 const EXPOSURE_BY_NODE_TYPE = {
   private_cluster: 0.2,
@@ -167,7 +161,7 @@ const NARRATION_PRESETS = window.NARRATION_PRESETS || {
   },
   sci_fi: {
     intro: 'Station Prometheus hums at the edge of nowhere. Trust is oxygen.',
-    day: 'Route choices echo through bulkheads. Exposure climbs as intel improves.',
+    day: 'Route choices echo through bulkheads. Every move can uncover clues and invite danger.',
     night: 'Warning lights dim. Mechanical noise masks deliberate footsteps.',
     morning: 'Systems stabilize at shift change, but the crew does not.',
     discussion: 'Cross-check logs, locations, and timing before the vote window closes.',
@@ -290,11 +284,63 @@ function buildLocationActions(node, baseExposure) {
   ];
 }
 
-function buildMafiaActions(locationExposure) {
+function buildMafiaActions(node, locationExposure) {
+  const low = clamp01(locationExposure - 0.12);
+  const med = clamp01(locationExposure - 0.02);
+  const high = clamp01(locationExposure + 0.14);
+
+  if (node.type === 'private_cluster') {
+    return [
+      buildAction('plant_alibi', 'Plant an alibi', 'Move quietly through bedroom routes to avoid attention.', low, { mafiaOnly: true, kind: 'hide' }),
+      buildAction('doorway_watch', 'Watch doorways', 'Track exits from bedroom lanes before selecting a target.', med, { mafiaOnly: true, kind: 'linger' }),
+      buildAction('ambush_window', 'Ambush window', 'Force a close-range opening near private rooms.', high, { mafiaOnly: true, kind: 'snoop' })
+    ];
+  }
+
+  if (node.id === 'cargo_hold') {
+    return [
+      buildAction('crate_shadow', 'Crate shadow', 'Use stacked cargo for concealed movement.', low, { mafiaOnly: true, kind: 'hide' }),
+      buildAction('manifest_scan', 'Manifest scan', 'Scan routes and identify isolated targets.', med, { mafiaOnly: true, kind: 'linger' }),
+      buildAction('freight_crush', 'Freight crush route', 'Risk a violent route that leaves obvious traces.', high, { mafiaOnly: true, kind: 'snoop' })
+    ];
+  }
+
+  if (node.id === 'reactor_tunnel') {
+    return [
+      buildAction('coolant_listen', 'Coolant line listen', 'Use machinery noise to mask movement.', low, { mafiaOnly: true, kind: 'hide' }),
+      buildAction('power_flicker', 'Trigger power flicker', 'Create confusion and move through blind spots.', med, { mafiaOnly: true, kind: 'linger' }),
+      buildAction('containment_breach', 'Containment feint', 'High-risk pressure route with severe fallout.', high, { mafiaOnly: true, kind: 'snoop' })
+    ];
+  }
+
+  if (node.type === 'investigation') {
+    return [
+      buildAction('erase_traces', 'Erase traces', 'Clean key clues before sunrise.', low, { mafiaOnly: true, kind: 'hide' }),
+      buildAction('false_lead', 'Plant false lead', 'Leave believable but misleading intel.', med, { mafiaOnly: true, kind: 'linger' }),
+      buildAction('monitor_snoopers', 'Monitor snoopers', 'Track who is gathering information tonight.', high, { mafiaOnly: true, kind: 'snoop' })
+    ];
+  }
+
+  if (node.type === 'vantage') {
+    return [
+      buildAction('stay_shaded', 'Stay shaded', 'Hold a low profile and watch crossings.', low, { mafiaOnly: true, kind: 'hide' }),
+      buildAction('sightline_track', 'Track sightlines', 'Study movement and likely escape paths.', med, { mafiaOnly: true, kind: 'linger' }),
+      buildAction('sniper_window', 'High-risk strike window', 'Take a bold route that risks exposure.', high, { mafiaOnly: true, kind: 'snoop' })
+    ];
+  }
+
+  if (node.type === 'transit') {
+    return [
+      buildAction('blend_route', 'Blend route', 'Merge with traffic and avoid attention.', low, { mafiaOnly: true, kind: 'hide' }),
+      buildAction('crosspath_hunt', 'Crosspath hunt', 'Follow movement between connected nodes.', med, { mafiaOnly: true, kind: 'linger' }),
+      buildAction('rail_cutoff', 'Route cutoff', 'Pin targets between exits at higher risk.', high, { mafiaOnly: true, kind: 'snoop' })
+    ];
+  }
+
   return [
-    buildAction('stalk_routes', 'Shadow route', 'Track likely escape lines before committing.', clamp01(locationExposure + 0.05), { mafiaOnly: true, kind: 'linger' }),
-    buildAction('set_trap', 'Set trap', 'Hold position and wait for vulnerable targets.', clamp01(locationExposure + 0.12), { mafiaOnly: true, kind: 'snoop' }),
-    buildAction('fake_patrol', 'Fake patrol', 'Blend with normal movement to reduce suspicion.', clamp01(locationExposure - 0.06), { mafiaOnly: true, kind: 'hide' })
+    buildAction('quiet_scout', 'Quiet scout', 'Track movement with minimal risk.', low, { mafiaOnly: true, kind: 'hide' }),
+    buildAction('pressure_route', 'Pressure route', 'Push the area to flush out vulnerable targets.', med, { mafiaOnly: true, kind: 'linger' }),
+    buildAction('commit_strike', 'Commit strike route', 'High-risk route built for fast elimination.', high, { mafiaOnly: true, kind: 'snoop' })
   ];
 }
 
@@ -308,7 +354,7 @@ function normalizeStoryData() {
     story.locations = graphNodes.map(node => {
       const exposure = getNodeExposure(node);
       const actions = buildLocationActions(node, exposure);
-      const mafiaActions = buildMafiaActions(exposure);
+      const mafiaActions = buildMafiaActions(node, exposure);
       const isBedroomZone = node.id === graph?.bedroomHubNode || node.type === 'private_cluster';
       const isSnoopZone = node.id === graph?.detectiveSnoopNode || node.type === 'investigation';
 
@@ -476,14 +522,14 @@ const state = {
   gameCode: (JOIN_CODE_PARAM || Math.random().toString(36).substring(2, 8)).toUpperCase(),
   joinCode: JOIN_CODE_PARAM ? JOIN_CODE_PARAM.toUpperCase() : '',
   multiplayerMode: JOIN_CODE_PARAM ? 'realtime' : 'passplay',
+  realtimePanelMode: JOIN_CODE_PARAM ? 'join' : 'host',
   network: {
     connected: false,
     status: 'offline',
     isHost: !JOIN_CODE_PARAM,
     hostDeviceId: null,
     deviceId: `dev_${Math.random().toString(36).slice(2, 8)}`,
-    deviceName: `Device ${Math.floor(Math.random() * 90) + 10}`,
-    wsUrl: DEFAULT_REALTIME_URL,
+    deviceName: 'Device 1',
     devices: [],
     deviceOrder: []
   },
@@ -511,14 +557,13 @@ const state = {
   snoopersByTarget: {},
   mafiaSnooperIntel: {},
   mafiaBriefing: {},
+  nightAwareness: {},
   nightAttackCounts: {},
   nightAttackMethod: null,
   mafiaVisionMode: {},
   nightTarget: null,
   mafiaVotes: {},
   mafiaKillMethods: {},
-  doctorMedicineLoadout: null,
-  doctorMedicineMatchup: null,
   doctorSave: null,
   votes: {},
   intelResults: {},
@@ -527,12 +572,14 @@ const state = {
   chatSenderId: null,
   discussionUnlockAt: 0,
   lastNarratorPromptKey: null,
+  pendingNarratorPhase: null,
   narrationLog: [],
   lastBotChatDay: null,
   botChatTimerIds: [],
   deathAnimation: null,
   winner: null,
   winReason: null,
+  pendingWin: null,
   finalDeath: null,
   announcement: null,
   selectedLocation: null,
@@ -540,12 +587,13 @@ const state = {
   selectedActionTarget: null,
   selectedTarget: null,
   selectedKillMethod: null,
-  selectedMedicine: null,
+  selectedAwareness: null,
   selectedSave: null,
   selectedVote: null,
   showInstructions: false,
   showSettings: false,
-  instructionsTab: 'basics',
+  showMap: false,
+  instructionsTab: 'rules',
   nameError: '',
   autoAdvance: { key: null, timerId: null },
   botDelayMs: 1200
@@ -684,17 +732,15 @@ function getPlanIntelChance(player, plan) {
 
 function getNightActors(alivePlayers = getAlivePlayers()) {
   const livingHumans = alivePlayers.filter(player => player.alive && !player.isBot);
-  const humanMafia = livingHumans.filter(player => player.role === 'mafia');
-  const humanDoctors = livingHumans.filter(player => player.role === 'doctor');
-  return [...humanMafia, ...humanDoctors];
+  const mafia = livingHumans.filter(player => player.role === 'mafia');
+  const detectives = livingHumans.filter(player => player.role === 'detective');
+  const doctors = livingHumans.filter(player => player.role === 'doctor');
+  const villagers = livingHumans.filter(player => player.role === 'villager');
+  return [...mafia, ...detectives, ...villagers, ...doctors];
 }
 
 function getKillMethodById(methodId) {
   return KILL_METHODS.find(method => method.id === methodId) || KILL_METHODS[0];
-}
-
-function getMedicineById(medicineId) {
-  return DOCTOR_MEDICINES.find(medicine => medicine.id === medicineId) || DOCTOR_MEDICINES[0];
 }
 
 function getAliveHumans() {
@@ -738,17 +784,35 @@ function addNarrationLog(text, phase = state.gamePhase) {
 
 function getNarratorPhasePrompt(phase = state.gamePhase) {
   const prompts = {
-    reveal: 'Narrator turn: set the tone and remind players that role reveals stay private.',
-    day: 'Narrator turn: invite bold day planning and remind everyone that higher exposure trades safety for better clues.',
-    night: 'Narrator turn: describe a tense night atmosphere without naming any role secrets.',
-    morning_doctor: 'Narrator turn: frame the aftermath and remind everyone that medicine type and attacker count both matter.',
-    announcement: 'Narrator turn: read the public outcome clearly before reactions begin.',
-    discussion: 'Narrator turn: open debate and ask players to compare timelines before voting.',
-    vote: 'Narrator turn: call for calm voting and careful use of intel.',
-    vote_announcement: 'Narrator turn: announce verdict aftermath and set up the next cycle.',
-    gameover: 'Narrator turn: close the story and summarize how the game ended.'
+    reveal: 'Narrator turn: set the scene and remind players that role reveals stay private.',
+    day: 'Narrator turn: warn players that exposure brings both information and danger.',
+    night: 'Narrator turn: describe the night atmosphere without revealing secret role actions.',
+    morning_doctor: 'Narrator turn: frame the aftermath before doctors lock in a save attempt.',
+    announcement: 'Narrator turn: deliver the public night outcome before discussion begins.',
+    discussion: 'Narrator turn: open discussion and ask players to compare timelines.',
+    vote: 'Narrator turn: call for calm voting and evidence-based choices.',
+    vote_announcement: 'Narrator turn: narrate the vote result and consequences.',
+    gameover: 'Narrator turn: close the story and summarize the final chain of events.'
   };
   return prompts[phase] || 'Narrator turn: set the mood for this phase.';
+}
+
+function shouldUseNarratorTurn(phase = state.gamePhase) {
+  if (state.settings.narratorMode !== 'human') return false;
+  if (state.screen !== 'game') return false;
+  return phase !== 'gameover';
+}
+
+function primeNarratorTurn(phase = state.gamePhase) {
+  state.pendingNarratorPhase = shouldUseNarratorTurn(phase) ? phase : null;
+}
+
+function clearNarratorTurn() {
+  state.pendingNarratorPhase = null;
+}
+
+function narratorTurnIsActive(phase = state.gamePhase) {
+  return shouldUseNarratorTurn(phase) && state.pendingNarratorPhase === phase;
 }
 
 function queueNarratorChatPrompt(phase = state.gamePhase) {
@@ -811,13 +875,92 @@ function sanitizeRoomCode(code) {
   return cleaned.slice(0, 8);
 }
 
-function getShareJoinUrl(code = state.gameCode) {
+function isDefaultDeviceLabel(name) {
+  return /^Device \d+$/i.test(String(name || '').trim());
+}
+
+function extractDeviceNumber(name) {
+  const match = String(name || '').trim().match(/^Device (\d+)$/i);
+  return match ? Number(match[1]) : null;
+}
+
+function getNextDeviceNumber(devices = state.network.devices || []) {
+  const used = new Set();
+  devices.forEach(device => {
+    const n = extractDeviceNumber(device.deviceName);
+    if (Number.isFinite(n)) used.add(n);
+  });
+  const selfN = extractDeviceNumber(state.network.deviceName);
+  if (Number.isFinite(selfN)) used.add(selfN);
+  let candidate = 1;
+  while (used.has(candidate)) candidate++;
+  return candidate;
+}
+
+function maybeAutoAssignDeviceName(devices = state.network.devices || []) {
+  if (!isDefaultDeviceLabel(state.network.deviceName)) return;
+  const next = getNextDeviceNumber(devices);
+  state.network.deviceName = `Device ${next}`;
+}
+
+function getJoinPortalBasePath() {
+  const pathname = window.location.pathname || '/';
+  if (pathname.endsWith('/join.html')) return pathname;
+  if (pathname.endsWith('/index.html')) return pathname.replace(/index\.html$/, 'join.html');
+  if (pathname.endsWith('/')) return `${pathname}join.html`;
+  const slash = pathname.lastIndexOf('/');
+  if (slash === -1) return '/join.html';
+  return `${pathname.slice(0, slash + 1)}join.html`;
+}
+
+function getJoinPortalUrl() {
   const protocol = window.location.protocol;
-  if (protocol !== 'http:' && protocol !== 'https:') return '';
+  const path = getJoinPortalBasePath();
+  if (protocol === 'http:' || protocol === 'https:') {
+    return `${window.location.origin}${path}`;
+  }
+  if (protocol === 'file:') {
+    const current = window.location.href.split('?')[0];
+    if (current.endsWith('/join.html')) return current;
+    return current.endsWith('/index.html')
+      ? current.replace(/index\.html$/, 'join.html')
+      : `${current.substring(0, current.lastIndexOf('/') + 1)}join.html`;
+  }
+  return '';
+}
+
+function getShareJoinUrl(code = state.gameCode) {
+  const joinPortal = getJoinPortalUrl();
+  if (!joinPortal) return '';
   const roomCode = sanitizeRoomCode(code);
-  if (!roomCode) return '';
-  const path = window.location.pathname || '/';
-  return `${window.location.origin}${path}?join=${roomCode}`;
+  if (!roomCode) return joinPortal;
+  return `${joinPortal}?join=${roomCode}`;
+}
+
+function getRelayCandidates() {
+  const protocol = window.location.protocol;
+  const wsProto = protocol === 'https:' ? 'wss' : 'ws';
+  const hostname = window.location.hostname || 'localhost';
+  const candidates = new Set();
+  candidates.add(`${wsProto}://${hostname}:8765`);
+  if (hostname === 'localhost') candidates.add(`${wsProto}://127.0.0.1:8765`);
+  if (hostname === '127.0.0.1') candidates.add(`${wsProto}://localhost:8765`);
+  if (protocol === 'file:') {
+    candidates.add('ws://localhost:8765');
+    candidates.add('ws://127.0.0.1:8765');
+  }
+  return [...candidates];
+}
+
+function getConnectionGuideText() {
+  const protocol = window.location.protocol;
+  if (protocol === 'file:') {
+    return 'Open this same folder on each device, launch join.html, and enter the room code.';
+  }
+  if (/^(localhost|127\.|192\.168\.|10\.)/.test(window.location.hostname || '')) {
+    return 'Open this site URL on each device in the same network, then join with the room code.';
+  }
+  return 'Share the portal URL or direct hotlink and join with the same room code.';
 }
 
 function isRealtimeMode() {
@@ -886,6 +1029,9 @@ function reconcileDeviceOrder(devices) {
 
 function updateRealtimePresence(devices, hostDeviceId = null) {
   state.network.devices = Array.isArray(devices) ? devices : [];
+  maybeAutoAssignDeviceName(state.network.devices);
+  const selfDevice = state.network.devices.find(device => device.deviceId === state.network.deviceId);
+  if (selfDevice?.deviceName) state.network.deviceName = selfDevice.deviceName;
   reconcileDeviceOrder(state.network.devices);
   state.network.hostDeviceId = hostDeviceId || null;
   if (hostDeviceId) state.network.isHost = hostDeviceId === state.network.deviceId;
@@ -922,6 +1068,7 @@ function disconnectRealtimeSession({ keepMode = true } = {}) {
   realtime.lastBroadcastPayload = '';
   state.network.connected = false;
   state.network.status = 'offline';
+  state.network.relayUrl = null;
   state.network.devices = [];
   state.network.deviceOrder = [];
   state.network.hostDeviceId = null;
@@ -986,55 +1133,101 @@ function connectRealtimeSession() {
   state.joinCode = roomCode;
   state.network.status = 'connecting';
   render();
+  const relayCandidates = getRelayCandidates();
+  let candidateIndex = 0;
 
-  let socket;
-  try {
-    socket = new WebSocket(state.network.wsUrl || DEFAULT_REALTIME_URL);
-  } catch (error) {
-    state.network.status = 'error';
-    render();
-    return;
-  }
-
-  realtime.socket = socket;
-
-  socket.onopen = () => {
-    state.network.connected = true;
-    state.network.status = 'connected';
-    sendRealtimeMessage({
-      type: 'join_room',
-      code: roomCode,
-      deviceId: state.network.deviceId,
-      deviceName: state.network.deviceName,
-      isHost: state.network.isHost
-    });
-    if (state.network.isHost) {
-      broadcastRealtimeState(true);
-    } else {
-      sendRealtimeMessage({ type: 'request_state', code: roomCode });
-    }
-    render();
-  };
-
-  socket.onmessage = (event) => {
-    let parsed;
-    try {
-      parsed = JSON.parse(event.data);
-    } catch (error) {
+  const tryNextCandidate = () => {
+    if (candidateIndex >= relayCandidates.length) {
+      state.network.status = 'offline';
+      state.network.connected = false;
+      realtime.socket = null;
+      render();
       return;
     }
-    handleRealtimeMessage(parsed);
+
+    const relayUrl = relayCandidates[candidateIndex++];
+    let socket;
+    try {
+      socket = new WebSocket(relayUrl);
+    } catch (error) {
+      tryNextCandidate();
+      return;
+    }
+
+    let opened = false;
+    let advanced = false;
+    const timeoutId = setTimeout(() => {
+      if (opened || advanced) return;
+      advanced = true;
+      try {
+        socket.close();
+      } catch (error) {
+        // no-op
+      }
+      tryNextCandidate();
+    }, 1800);
+
+    const advanceIfNeeded = () => {
+      if (opened || advanced) return;
+      advanced = true;
+      clearTimeout(timeoutId);
+      try {
+        socket.close();
+      } catch (error) {
+        // no-op
+      }
+      tryNextCandidate();
+    };
+
+    socket.onopen = () => {
+      opened = true;
+      advanced = true;
+      clearTimeout(timeoutId);
+      realtime.socket = socket;
+      state.network.connected = true;
+      state.network.status = 'connected';
+      state.network.relayUrl = relayUrl;
+      sendRealtimeMessage({
+        type: 'join_room',
+        code: roomCode,
+        deviceId: state.network.deviceId,
+        deviceName: state.network.deviceName,
+        isHost: state.network.isHost
+      });
+      if (state.network.isHost) {
+        broadcastRealtimeState(true);
+      } else {
+        sendRealtimeMessage({ type: 'request_state', code: roomCode });
+      }
+      render();
+    };
+
+    socket.onmessage = (event) => {
+      let parsed;
+      try {
+        parsed = JSON.parse(event.data);
+      } catch (error) {
+        return;
+      }
+      handleRealtimeMessage(parsed);
+    };
+
+    socket.onerror = () => {
+      advanceIfNeeded();
+    };
+
+    socket.onclose = () => {
+      clearTimeout(timeoutId);
+      if (!opened) {
+        advanceIfNeeded();
+        return;
+      }
+      disconnectRealtimeSession();
+      render();
+    };
   };
 
-  socket.onerror = () => {
-    state.network.status = 'error';
-    render();
-  };
-
-  socket.onclose = () => {
-    disconnectRealtimeSession();
-    render();
-  };
+  tryNextCandidate();
 }
 
 function forwardRealtimeAction(action, args = []) {
@@ -1281,8 +1474,14 @@ function getIntelFallback(player) {
     saw: null,
     nearby: null,
     tracked: null,
-    cause: null
+    cause: null,
+    awareness: null
   };
+}
+
+function getNightAwarenessChoice(playerId) {
+  const selectedId = state.nightAwareness?.[playerId];
+  return NIGHT_AWARENESS_OPTIONS.find(option => option.id === selectedId) || NIGHT_AWARENESS_OPTIONS[1];
 }
 
 function buildNarration(eventName, context = {}) {
@@ -1330,16 +1529,16 @@ function calculateRolesFromPreset(preset, count) {
     else if (count <= 14) mafia = 5, doctor = 3, detective = 3;
     else mafia = Math.round(count * 0.38), doctor = Math.max(2, Math.round(count * 0.22)), detective = Math.max(1, Math.round(count * 0.14));
   } else if (preset.id === 'brutal') {
-    // Blood Moon: mafia-forward, minimal support.
-    if (count <= 4) mafia = 2, doctor = 0, detective = 0;
-    else if (count <= 6) mafia = 3, doctor = 0, detective = 1;
-    else if (count <= 8) mafia = 4, doctor = 1, detective = 1;
-    else if (count <= 10) mafia = 5, doctor = 1, detective = 1;
-    else if (count <= 12) mafia = 6, doctor = 1, detective = 2;
-    else if (count <= 14) mafia = 7, doctor = 1, detective = 2;
-    else mafia = Math.round(count * 0.5), doctor = Math.max(1, Math.round(count * 0.08)), detective = Math.max(1, Math.round(count * 0.1));
+    // Blood Moon: aggressive but should not auto-trigger parity warnings in normal lobbies.
+    if (count <= 4) mafia = 1, doctor = 1, detective = 0;
+    else if (count <= 6) mafia = 2, doctor = 1, detective = 0;
+    else if (count <= 8) mafia = 3, doctor = 1, detective = 1;
+    else if (count <= 10) mafia = 4, doctor = 1, detective = 1;
+    else if (count <= 12) mafia = 4, doctor = 2, detective = 1;
+    else if (count <= 14) mafia = 5, doctor = 2, detective = 1;
+    else mafia = Math.round(count * 0.34), doctor = Math.max(1, Math.round(count * 0.14)), detective = Math.max(1, Math.round(count * 0.1));
   } else if (preset.id === 'chaos') {
-    // Aftershock: volatile but not pure mafia; more doctors than Blood Moon.
+    // Crossfire: volatile but not pure mafia; more doctors than Blood Moon.
     if (count <= 4) mafia = 1, doctor = 1, detective = 0;
     else if (count <= 6) mafia = 2, doctor = 1, detective = 1;
     else if (count <= 8) mafia = 3, doctor = 2, detective = 1;
@@ -1438,11 +1637,37 @@ function validateName(name) {
   return null;
 }
 
+function canHostManageBots() {
+  return !isRealtimeMode() || state.network.isHost;
+}
+
+function sortPlayersByDeviceOrder() {
+  const orderedDevices = state.network.deviceOrder || [];
+  if (!isRealtimeMode() || orderedDevices.length === 0) return;
+
+  const grouped = {};
+  state.players.forEach(player => {
+    const key = player.deviceId || 'unknown';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(player);
+  });
+
+  const reordered = [];
+  orderedDevices.forEach(deviceId => {
+    if (grouped[deviceId]) reordered.push(...grouped[deviceId]);
+    delete grouped[deviceId];
+  });
+
+  Object.values(grouped).forEach(group => reordered.push(...group));
+  state.players = reordered;
+}
+
 // -----------------------------------------------------------------------------
 // PLAYER/BOT MANAGEMENT
 // -----------------------------------------------------------------------------
 
 function addBot() {
+  if (!canHostManageBots()) return;
   const allPlayers = getAllPlayers();
   const usedNames = allPlayers.map(p => p.name);
   const available = BOT_NAMES.filter(n => !usedNames.includes(n));
@@ -1464,8 +1689,24 @@ function addBot() {
 }
 
 function removeBot(id) {
+  if (!canHostManageBots()) return;
   state.bots = state.bots.filter(b => b.id !== id);
   updateRoleConfig();
+  render();
+}
+
+function renameBot(id, value) {
+  if (!canHostManageBots()) return;
+  const nextName = String(value || '').trim();
+  if (!nextName) return;
+  const duplicate = getAllPlayers().some(player => player.id !== id && player.name.toLowerCase() === nextName.toLowerCase());
+  if (duplicate) {
+    state.nameError = 'Name already taken';
+    render();
+    return;
+  }
+  state.bots = state.bots.map(bot => bot.id === id ? { ...bot, name: nextName } : bot);
+  state.nameError = '';
   render();
 }
 
@@ -1521,13 +1762,49 @@ function moveDevice(deviceId, direction) {
   state.network.deviceOrder = order;
 
   // Keep player ordering grouped by device order while preserving within-device order.
-  const grouped = {};
-  state.players.forEach(player => {
-    const key = player.deviceId || 'unknown';
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(player);
-  });
-  state.players = order.flatMap(id => grouped[id] || []);
+  sortPlayersByDeviceOrder();
+  render();
+}
+
+function movePlayerToIndex(playerId, targetIndex) {
+  const sourceIndex = state.players.findIndex(player => player.id === playerId);
+  if (sourceIndex === -1) return;
+  const boundedTarget = Math.max(0, Math.min(targetIndex, state.players.length - 1));
+  if (boundedTarget === sourceIndex) return;
+
+  const reordered = [...state.players];
+  const [item] = reordered.splice(sourceIndex, 1);
+  reordered.splice(boundedTarget, 0, item);
+  state.players = reordered;
+  render();
+}
+
+function movePlayerWithinDevice(playerId, targetPlayerId) {
+  const player = state.players.find(item => item.id === playerId);
+  const target = state.players.find(item => item.id === targetPlayerId);
+  if (!player || !target) return;
+  if ((player.deviceId || '') !== (target.deviceId || '')) return;
+
+  const sourceIndex = state.players.findIndex(item => item.id === playerId);
+  const targetIndex = state.players.findIndex(item => item.id === targetPlayerId);
+  if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return;
+
+  const reordered = [...state.players];
+  const [item] = reordered.splice(sourceIndex, 1);
+  reordered.splice(targetIndex, 0, item);
+  state.players = reordered;
+  render();
+}
+
+function moveDeviceToIndex(deviceId, targetDeviceId) {
+  const order = [...(state.network.deviceOrder || [])];
+  const sourceIndex = order.indexOf(deviceId);
+  const targetIndex = order.indexOf(targetDeviceId);
+  if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return;
+  const [item] = order.splice(sourceIndex, 1);
+  order.splice(targetIndex, 0, item);
+  state.network.deviceOrder = order;
+  sortPlayersByDeviceOrder();
   render();
 }
 
@@ -1580,14 +1857,14 @@ function beginNightPhase() {
   state.showRole = false;
   state.selectedTarget = null;
   state.selectedKillMethod = null;
-  state.selectedMedicine = null;
+  state.selectedAwareness = null;
   state.selectedSave = null;
-  state.doctorMedicineLoadout = null;
-  state.doctorMedicineMatchup = null;
   state.mafiaKillMethods = {};
+  state.nightAwareness = {};
   state.nightAttackMethod = null;
   state.narrative = buildNarration('night');
   addNarrationLog(state.narrative, 'night');
+  primeNarratorTurn('night');
   queueNarratorChatPrompt('night');
   clearBotChatTimers();
   prepareNightContext();
@@ -1651,10 +1928,9 @@ function startGame() {
   state.nightAttackMethod = null;
   state.mafiaSnooperIntel = {};
   state.mafiaBriefing = {};
+  state.nightAwareness = {};
   state.mafiaVotes = {};
   state.mafiaKillMethods = {};
-  state.doctorMedicineLoadout = null;
-  state.doctorMedicineMatchup = null;
   state.doctorSave = null;
   state.votes = {};
   state.intelResults = {};
@@ -1666,7 +1942,7 @@ function startGame() {
   state.selectedActionTarget = null;
   state.selectedTarget = null;
   state.selectedKillMethod = null;
-  state.selectedMedicine = null;
+  state.selectedAwareness = null;
   state.selectedSave = null;
   state.selectedVote = null;
   state.discussionUnlockAt = 0;
@@ -1675,23 +1951,25 @@ function startGame() {
   state.snoopersByTarget = {};
   state.mafiaSnooperIntel = {};
   state.mafiaBriefing = {};
+  state.nightAwareness = {};
   state.mafiaVotes = {};
   state.mafiaKillMethods = {};
   state.nightAttackCounts = {};
   state.nightAttackMethod = null;
-  state.doctorMedicineLoadout = null;
-  state.doctorMedicineMatchup = null;
   state.intelResults = {};
   state.lastNarratorPromptKey = null;
+  state.pendingNarratorPhase = null;
   state.narrationLog = [];
   state.lastBotChatDay = null;
   clearBotChatTimers();
   clearDeathAnimation();
   state.winner = null;
   state.winReason = null;
+  state.pendingWin = null;
   state.finalDeath = null;
   clearAutoAdvance();
   addNarrationLog(state.narrative, 'reveal');
+  primeNarratorTurn('reveal');
   queueNarratorChatPrompt('reveal');
 
   const allPlayers2 = getAllPlayers();
@@ -1751,18 +2029,21 @@ function botMakeDecisions(phase) {
         state.mafiaKillMethods[bot.id] = preferred?.id || KILL_METHODS[0].id;
       }
     });
-
-    const doctorBot = aliveBots.find(b => b.role === 'doctor');
-    if (doctorBot && !state.doctorMedicineLoadout) {
-      const picked = randomChoice(DOCTOR_MEDICINES) || DOCTOR_MEDICINES[0];
-      state.doctorMedicineLoadout = picked.id;
-    }
+    aliveBots
+      .filter(bot => bot.role !== 'mafia')
+      .forEach(bot => {
+        const pick = randomChoice(NIGHT_AWARENESS_OPTIONS) || NIGHT_AWARENESS_OPTIONS[1];
+        state.nightAwareness[bot.id] = pick.id;
+      });
   }
 
   if (phase === 'morning_doctor') {
     const doctorBot = aliveBots.find(b => b.role === 'doctor');
     if (doctorBot) {
-      state.doctorSave = alivePlayers[Math.floor(Math.random() * alivePlayers.length)]?.id;
+      const preferred = state.nightTarget ? alivePlayers.find(player => player.id === state.nightTarget) : null;
+      const fallback = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
+      const choice = preferred && Math.random() > 0.35 ? preferred : fallback;
+      state.doctorSave = choice?.id || null;
     }
   }
 
@@ -1822,7 +2103,9 @@ function processNight() {
     if (player.role === 'mafia') return;
 
     const playerNode = resolveNodeBaseId(getPlanNodeId(plan, player));
-    const effectiveIntel = getPlanIntelChance(player, plan);
+    const awarenessChoice = getNightAwarenessChoice(player.id);
+    const awarenessBoost = Number(awarenessChoice?.exposureMod || 0);
+    const effectiveIntel = clamp01(getPlanIntelChance(player, plan) + awarenessBoost);
     const intel = getIntelFallback(player);
     const noiseWeight = clamp01(resolvedMethod.noise || 0.3);
     const distanceToAttack = targetNode ? getGraphDistance(playerNode, targetNode) : Infinity;
@@ -1830,7 +2113,7 @@ function processNight() {
 
     if (witnessedFromNearby) {
       intel.heard = `You were nearby during the attack and heard ${resolvedMethod.evidenceHint}.`;
-      const witnessChance = clamp01((player.role === 'detective' ? 0.7 : 0.45) + (noiseWeight * 0.35));
+      const witnessChance = clamp01((player.role === 'detective' ? 0.62 : 0.34) + (noiseWeight * 0.42) + (awarenessBoost * 0.45));
       if (Math.random() < witnessChance) {
         const killers = alivePlayers.filter(candidate => candidate.role === 'mafia');
         const killer = killers[Math.floor(Math.random() * killers.length)];
@@ -1870,6 +2153,7 @@ function processNight() {
     } else if (!intel.nearby) {
       intel.nearby = 'Nearby: no one in your immediate area.';
     }
+    intel.awareness = `Night stance: ${awarenessChoice.name}.`;
 
     if (plan.action?.requiresTarget && plan.actionTarget) {
       const target = alivePlayers.find(candidate => candidate.id === plan.actionTarget);
@@ -1893,22 +2177,24 @@ function processNight() {
       if (!newIntel[player.id]) newIntel[player.id] = getIntelFallback(player);
     });
 
-  if (!state.doctorMedicineLoadout && alivePlayers.some(player => player.role === 'doctor')) {
-    state.doctorMedicineLoadout = DOCTOR_MEDICINES[0].id;
-  }
-
   state.intelResults = newIntel;
   state.narrative = buildNarration('morning', { attackHappened: Boolean(targetId), saved: false });
-  addNarrationLog(state.narrative, 'morning_doctor');
-  state.gamePhase = 'morning_doctor';
-  queueNarratorChatPrompt('morning_doctor');
+  addNarrationLog(state.narrative, shouldRunDoctorPhase() ? 'morning_doctor' : 'announcement');
   state.showRole = false;
   state.selectedSave = null;
-  state.selectedMedicine = null;
-
+  state.selectedAwareness = null;
+  if (shouldRunDoctorPhase()) {
+    state.gamePhase = 'morning_doctor';
+    primeNarratorTurn('morning_doctor');
+    queueNarratorChatPrompt('morning_doctor');
+    withBotDelay(() => {
+      botMakeDecisions('morning_doctor');
+      render();
+    }, Math.max(700, state.botDelayMs));
+    return;
+  }
   withBotDelay(() => {
-    botMakeDecisions('morning_doctor');
-    render();
+    processMorning();
   }, Math.max(700, state.botDelayMs));
 }
 
@@ -1919,8 +2205,7 @@ function processNight() {
 function processMorning() {
   const allPlayers = getAllPlayers();
   const target = allPlayers.find(p => p.id === state.nightTarget);
-  const method = getKillMethodById(state.nightAttackMethod);
-  const medicine = getMedicineById(state.doctorMedicineLoadout);
+  const method = getKillMethodById(state.nightAttackMethod || KILL_METHODS[0].id);
   let deathMessage = '';
   let savedByDoctor = false;
 
@@ -1928,10 +2213,7 @@ function processMorning() {
   const doctorTriedSave = Boolean(target && state.doctorSave && state.doctorSave === target.id);
   let saveChance = 0;
   if (doctorTriedSave) {
-    const medicineBoost = medicine?.methodBoost?.[method.id] || 0;
-    const attackerPenalty = Math.max(0, attackCount - 1) * 0.24;
-    saveChance = clamp01(0.7 - (method.cureDifficulty * 0.28) - attackerPenalty + medicineBoost);
-    state.doctorMedicineMatchup = medicineBoost;
+    saveChance = getDoctorSaveChance(method, attackCount);
     savedByDoctor = Math.random() < saveChance;
   }
 
@@ -1942,7 +2224,7 @@ function processMorning() {
       state.players = state.players.map(p => p.id === target.id ? { ...p, alive: false } : p);
     }
     SoundEffects.playDeath();
-    deathMessage = `${target.name} was found dead.\n\nCause of death: ${method.deathLabel} (${method.name}).\n\nThey were the ${getRoleDisplayName(target.role)}.`;
+    deathMessage = `${target.name} was found dead.\n\nCause of death: ${method.deathLabel} (${method.name}).\nDisturbance level: ${Math.round((method.noise || 0) * 100)}%.\n\nThey were the ${getRoleDisplayName(target.role)}.`;
     state.finalDeath = {
       type: 'night',
       victim: target.name,
@@ -1953,7 +2235,7 @@ function processMorning() {
     setDeathAnimation(target.name, getRoleDisplayName(target.role), 'night');
   } else if (target && savedByDoctor) {
     const methodLine = `Attack method: ${method.name}.`;
-    deathMessage = `${target.name} was attacked but survived.\n\n${methodLine}\nDoctor loadout: ${medicine.name} (${Math.round(saveChance * 100)}% save chance this night).`;
+    deathMessage = `${target.name} was attacked but survived.\n\n${methodLine}\nDoctor save chance this morning: ${Math.round(saveChance * 100)}%.`;
     state.finalDeath = {
       type: 'night',
       victim: target.name,
@@ -1975,24 +2257,25 @@ function processMorning() {
   state.mafiaKillMethods = {};
   state.nightAttackCounts = {};
   state.doctorSave = null;
-  state.doctorMedicineLoadout = null;
-  state.doctorMedicineMatchup = null;
-
-  if (!checkWin()) {
-    state.announcement = deathMessage;
-    state.gamePhase = 'announcement';
-    state.narrative = buildNarration('morning', {
-      attackHappened: Boolean(target),
-      saved: Boolean(target && savedByDoctor)
-    });
-    queueNarratorChatPrompt('announcement');
-    render();
-  }
+  state.pendingWin = evaluateWinCondition();
+  state.announcement = deathMessage;
+  state.gamePhase = 'announcement';
+  primeNarratorTurn('announcement');
+  state.narrative = buildNarration('morning', {
+    attackHappened: Boolean(target),
+    saved: Boolean(target && savedByDoctor)
+  });
+  queueNarratorChatPrompt('announcement');
+  render();
 }
 
 function afterAnnouncement() {
   state.announcement = null;
   clearDeathAnimation();
+  if (state.pendingWin) {
+    finalizeGameOver();
+    return;
+  }
   state.gamePhase = 'discussion';
   const firstHuman = findFirstAliveHumanIndex();
   state.currentPlayerIndex = firstHuman !== -1 ? firstHuman : 0;
@@ -2000,6 +2283,7 @@ function afterAnnouncement() {
   state.chatDraft = '';
   state.chatSenderId = getAllPlayers()[state.currentPlayerIndex]?.id || null;
   state.discussionUnlockAt = isSoloMode() ? 0 : Date.now() + 5000;
+  primeNarratorTurn('discussion');
   state.narrative = buildNarration('discussion');
   addNarrationLog(state.narrative, 'discussion');
   queueNarratorChatPrompt('discussion');
@@ -2067,22 +2351,24 @@ function processVote() {
   state.mafiaKillMethods = {};
   state.nightAttackCounts = {};
   state.nightAttackMethod = null;
-  state.doctorMedicineLoadout = null;
-  state.doctorMedicineMatchup = null;
   state.doctorSave = null;
   state.intelResults = {};
-
-  if (!checkWin()) {
-    state.announcement = voteMessage;
-    state.gamePhase = 'vote_announcement';
-    render();
-  }
+  state.pendingWin = evaluateWinCondition();
+  state.announcement = voteMessage;
+  state.gamePhase = 'vote_announcement';
+  primeNarratorTurn('vote_announcement');
+  queueNarratorChatPrompt('vote_announcement');
+  render();
 }
 
 function afterVoteAnnouncement() {
   state.announcement = null;
   clearDeathAnimation();
   clearBotChatTimers();
+  if (state.pendingWin) {
+    finalizeGameOver();
+    return;
+  }
   state.gamePhase = 'day';
   state.dayNumber++;
   state.currentPlayerIndex = 0;
@@ -2092,10 +2378,11 @@ function afterVoteAnnouncement() {
   state.selectedActionTarget = null;
   state.selectedTarget = null;
   state.selectedKillMethod = null;
-  state.selectedMedicine = null;
+  state.selectedAwareness = null;
   state.chatSenderId = null;
   state.chatDraft = '';
   state.discussionUnlockAt = 0;
+  primeNarratorTurn('day');
   queueNarratorChatPrompt('day');
   state.narrative = buildNarration('day');
 
@@ -2112,43 +2399,271 @@ function afterVoteAnnouncement() {
 // WIN CONDITION
 // -----------------------------------------------------------------------------
 
-function checkWin() {
+function evaluateWinCondition() {
   const alivePlayers = getAlivePlayers();
   const mafiaAlive = alivePlayers.filter(p => p.role === 'mafia').length;
   const townAlive = alivePlayers.filter(p => p.role !== 'mafia').length;
   const humansAlive = alivePlayers.filter(p => !p.isBot).length;
 
-  // All humans dead = mafia wins
   if (state.screen === 'game' && humansAlive === 0) {
-    state.winner = 'mafia';
-    state.winReason = 'All human-controlled players were eliminated.';
-    state.gamePhase = 'gameover';
-    SoundEffects.playDefeat();
-    render();
-    return true;
+    return {
+      winner: 'mafia',
+      reason: 'All human-controlled players were eliminated.'
+    };
   }
 
-  // No mafia = town wins
   if (mafiaAlive === 0) {
-    state.winner = 'town';
-    state.winReason = 'Town removed every Mafia member.';
-    state.gamePhase = 'gameover';
-    SoundEffects.playVictory();
-    render();
-    return true;
+    return {
+      winner: 'town',
+      reason: 'Town removed every Mafia member.'
+    };
   }
 
-  // Mafia >= town = mafia wins
-  if (mafiaAlive >= townAlive) {
-    state.winner = 'mafia';
-    state.winReason = 'Mafia reached parity with Town.';
-    state.gamePhase = 'gameover';
-    SoundEffects.playDefeat();
-    render();
-    return true;
+  if (mafiaAlive > townAlive) {
+    return {
+      winner: 'mafia',
+      reason: 'Mafia now outnumber Town.'
+    };
   }
 
-  return false;
+  return null;
+}
+
+function finalizeGameOver() {
+  if (!state.pendingWin) return;
+  state.winner = state.pendingWin.winner;
+  state.winReason = state.pendingWin.reason;
+  state.pendingWin = null;
+  state.gamePhase = 'gameover';
+  clearNarratorTurn();
+  addNarrationLog(`Final outcome: ${state.winReason}`, 'gameover');
+  if (state.winner === 'town') SoundEffects.playVictory();
+  else SoundEffects.playDefeat();
+  render();
+}
+
+function checkWin() {
+  state.pendingWin = evaluateWinCondition();
+  if (!state.pendingWin) return false;
+  finalizeGameOver();
+  return true;
+}
+
+function hasDoctorAlive() {
+  return getAlivePlayers().some(player => player.role === 'doctor');
+}
+
+function shouldRunDoctorPhase() {
+  return hasDoctorAlive() && Boolean(state.nightTarget);
+}
+
+function getDoctorSaveChance(method, attackCount = 1) {
+  const attackerPenalty = Math.max(0, attackCount - 1) * 0.23;
+  const methodPenalty = (method?.cureDifficulty || 0.6) * 0.3;
+  return clamp01(0.74 - methodPenalty - attackerPenalty);
+}
+
+function getNightAwarenessById(id) {
+  return NIGHT_AWARENESS_OPTIONS.find(option => option.id === id) || NIGHT_AWARENESS_OPTIONS[1];
+}
+
+function confirmNightAwarenessForCurrent() {
+  const current = getCurrentPlayer();
+  if (!current || current.role === 'mafia') return;
+  const selected = getNightAwarenessById(state.selectedAwareness);
+  state.nightAwareness[current.id] = selected.id;
+  state.selectedAwareness = null;
+}
+
+function advanceNightActor() {
+  const allPlayers = getAllPlayers();
+  const nightActors = getNightActors();
+  const currentActor = getCurrentPlayer();
+  const currentActorIndex = nightActors.findIndex(actor => actor.id === currentActor?.id);
+  const nextActor = currentActorIndex !== -1 ? nightActors[currentActorIndex + 1] : null;
+  if (nextActor) {
+    const nextIndex = allPlayers.findIndex(player => player.id === nextActor.id);
+    state.currentPlayerIndex = nextIndex !== -1 ? nextIndex : state.currentPlayerIndex;
+    state.showRole = false;
+    render();
+    return;
+  }
+  processNight();
+  render();
+}
+
+function ensureDoctorSaveChoice() {
+  if (!hasDoctorAlive()) return;
+  if (state.doctorSave) return;
+  const fallback = getAlivePlayers().find(player => player.id === state.nightTarget) || getAlivePlayers()[0];
+  state.doctorSave = fallback?.id || null;
+}
+
+function completeDoctorPhase() {
+  ensureDoctorSaveChoice();
+  state.selectedSave = null;
+  processMorning();
+}
+
+function normalizeCodeFromInput(raw) {
+  const code = sanitizeRoomCode(raw || state.gameCode);
+  state.gameCode = code;
+  state.joinCode = code;
+}
+
+function regenerateRoomCode() {
+  const next = Math.random().toString(36).slice(2, 8).toUpperCase();
+  normalizeCodeFromInput(next);
+}
+
+function applyRealtimePanelMode(mode) {
+  state.realtimePanelMode = mode === 'join' ? 'join' : 'host';
+  if (state.realtimePanelMode === 'host') {
+    state.network.isHost = true;
+  }
+}
+
+function applyJoinCodeInput(value) {
+  normalizeCodeFromInput(value);
+}
+
+function hostRealtimeRoom() {
+  applyRealtimePanelMode('host');
+  state.multiplayerMode = 'realtime';
+  state.network.isHost = true;
+  if (state.network.connected) disconnectRealtimeSession({ keepMode: true });
+  connectRealtimeSession();
+}
+
+function joinRealtimeRoom() {
+  applyRealtimePanelMode('join');
+  state.multiplayerMode = 'realtime';
+  state.network.isHost = false;
+  if (state.network.connected) disconnectRealtimeSession({ keepMode: true });
+  connectRealtimeSession();
+}
+
+function applyRealtimeDeviceName(value) {
+  const next = String(value || '').trim();
+  if (!next) return;
+  state.network.deviceName = next.slice(0, 32);
+  try {
+    localStorage.setItem('mafia_device_name', state.network.deviceName);
+  } catch (error) {
+    // ignore
+  }
+}
+
+function setNightAwareness(value) {
+  const option = getNightAwarenessById(value);
+  state.selectedAwareness = option.id;
+  render();
+}
+
+function renamePlayer(id, value) {
+  const nextName = String(value || '').trim();
+  if (!nextName) return;
+  if (state.players.some(player => player.id !== id && player.name.toLowerCase() === nextName.toLowerCase())) {
+    state.nameError = 'Name already taken';
+    render();
+    return;
+  }
+  state.players = state.players.map(player => player.id === id ? { ...player, name: nextName } : player);
+  state.nameError = '';
+  render();
+}
+
+function toggleMap() {
+  state.showMap = !state.showMap;
+  render();
+}
+
+function closeMap() {
+  state.showMap = false;
+  render();
+}
+
+function getDeviceGroupedPlayers() {
+  const devices = state.network.devices || [];
+  const order = state.network.deviceOrder || [];
+  const byDevice = {};
+  state.players.forEach(player => {
+    const key = player.deviceId || state.network.deviceId;
+    if (!byDevice[key]) byDevice[key] = [];
+    byDevice[key].push(player);
+  });
+  const ordered = order.length > 0 ? order : devices.map(device => device.deviceId);
+  const mapped = ordered.map(deviceId => {
+    const device = devices.find(item => item.deviceId === deviceId) || {
+      deviceId,
+      deviceName: deviceId === state.network.deviceId ? state.network.deviceName : getDeviceNameById(deviceId),
+      isHost: deviceId === state.network.hostDeviceId
+    };
+    return {
+      ...device,
+      players: byDevice[deviceId] || []
+    };
+  });
+  Object.entries(byDevice).forEach(([deviceId, players]) => {
+    if (mapped.some(item => item.deviceId === deviceId)) return;
+    mapped.push({
+      deviceId,
+      deviceName: getDeviceNameById(deviceId),
+      isHost: deviceId === state.network.hostDeviceId,
+      players
+    });
+  });
+  return mapped;
+}
+
+function reorderPlayerByDrop(sourcePlayerId, targetPlayerId) {
+  if (!sourcePlayerId || !targetPlayerId || sourcePlayerId === targetPlayerId) return;
+  const source = state.players.find(player => player.id === sourcePlayerId);
+  const target = state.players.find(player => player.id === targetPlayerId);
+  if (!source || !target) return;
+  if (isRealtimeMode() && (source.deviceId || '') !== (target.deviceId || '')) return;
+  if (isRealtimeMode()) {
+    movePlayerWithinDevice(sourcePlayerId, targetPlayerId);
+  } else {
+    const targetIndex = state.players.findIndex(player => player.id === targetPlayerId);
+    movePlayerToIndex(sourcePlayerId, targetIndex);
+  }
+}
+
+function reorderDeviceByDrop(sourceDeviceId, targetDeviceId) {
+  if (!sourceDeviceId || !targetDeviceId || sourceDeviceId === targetDeviceId) return;
+  moveDeviceToIndex(sourceDeviceId, targetDeviceId);
+}
+
+function initializeDeviceNameFromContext() {
+  try {
+    const stored = localStorage.getItem('mafia_device_name');
+    if (stored && stored.trim()) {
+      state.network.deviceName = stored.trim().slice(0, 32);
+    }
+  } catch (error) {
+    // localStorage unavailable
+  }
+}
+
+initializeDeviceNameFromContext();
+if (!state.network.deviceName.trim()) state.network.deviceName = 'Device 1';
+state.network.deviceName = state.network.deviceName.slice(0, 32);
+if (window.location.pathname.endsWith('/join.html')) state.realtimePanelMode = 'join';
+if (JOIN_CODE_PARAM) {
+  normalizeCodeFromInput(JOIN_CODE_PARAM);
+  state.multiplayerMode = 'realtime';
+  state.realtimePanelMode = 'join';
+  state.network.isHost = false;
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    try {
+      localStorage.setItem('mafia_device_name', state.network.deviceName || 'Device 1');
+    } catch (error) {
+      // ignore
+    }
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -2178,13 +2693,16 @@ window.goToSetup = () => {
   state.selectedActionTarget = null;
   state.selectedTarget = null;
   state.selectedKillMethod = null;
-  state.selectedMedicine = null;
+  state.selectedAwareness = null;
   state.selectedSave = null;
   state.selectedVote = null;
   state.discussionUnlockAt = 0;
+  state.showMap = false;
   state.lastNarratorPromptKey = null;
+  state.pendingNarratorPhase = null;
   state.narrationLog = [];
   state.lastBotChatDay = null;
+  state.pendingWin = null;
   render();
 };
 
@@ -2198,13 +2716,15 @@ window.goToSoloLobby = () => {
 
 window.goToMultiLobby = () => {
   state.screen = 'multi_lobby';
-  if (state.joinCode) {
+  if (state.realtimePanelMode === 'join' || state.joinCode) {
     state.multiplayerMode = 'realtime';
     state.network.isHost = false;
-    state.gameCode = sanitizeRoomCode(state.joinCode);
+    state.gameCode = sanitizeRoomCode(state.joinCode || state.gameCode);
+    state.joinCode = state.gameCode;
   }
+  maybeAutoAssignDeviceName(state.network.devices);
   updateRoleConfig();
-  if (isRealtimeMode() && !state.network.connected && state.joinCode) {
+  if (isRealtimeMode() && !state.network.connected && state.realtimePanelMode === 'join' && state.joinCode) {
     connectRealtimeSession();
   }
   render();
@@ -2249,6 +2769,11 @@ window.toggleSetting = (key) => {
 window.setNarratorMode = (mode) => {
   state.settings.narratorMode = mode === 'human' ? 'human' : 'auto';
   state.lastNarratorPromptKey = null;
+  if (state.settings.narratorMode === 'human') {
+    primeNarratorTurn(state.gamePhase);
+  } else {
+    clearNarratorTurn();
+  }
   queueNarratorChatPrompt(state.gamePhase);
   render();
 };
@@ -2271,8 +2796,9 @@ window.setMultiplayerMode = (mode) => {
   const nextMode = mode === 'realtime' ? 'realtime' : 'passplay';
   state.multiplayerMode = nextMode;
   if (nextMode === 'realtime') {
-    state.network.isHost = !state.joinCode;
-    if (state.joinCode && !state.network.connected) connectRealtimeSession();
+    if (!state.realtimePanelMode) state.realtimePanelMode = 'host';
+    state.network.isHost = state.realtimePanelMode !== 'join';
+    if (state.realtimePanelMode === 'join' && state.joinCode && !state.network.connected) connectRealtimeSession();
   } else {
     disconnectRealtimeSession({ keepMode: true });
   }
@@ -2280,40 +2806,32 @@ window.setMultiplayerMode = (mode) => {
 };
 
 window.setRealtimeDeviceName = (value) => {
-  state.network.deviceName = String(value || '').slice(0, 32) || state.network.deviceName;
-};
-
-window.setRealtimeUrl = (value) => {
-  state.network.wsUrl = String(value || '').trim() || DEFAULT_REALTIME_URL;
-};
-
-window.setRoomCode = (value) => {
-  const code = sanitizeRoomCode(value);
-  if (!code) return;
-  state.gameCode = code;
-  state.joinCode = code;
-};
-
-window.hostThisRoom = () => {
-  state.network.isHost = true;
-  state.joinCode = state.gameCode;
-  if (state.network.connected) disconnectRealtimeSession({ keepMode: true });
-  connectRealtimeSession();
+  applyRealtimeDeviceName(value);
   render();
 };
 
-window.joinThisRoom = () => {
-  state.network.isHost = false;
-  state.joinCode = state.gameCode;
-  if (state.network.connected) disconnectRealtimeSession({ keepMode: true });
-  connectRealtimeSession();
+window.setRealtimePanelMode = (mode) => {
+  applyRealtimePanelMode(mode);
   render();
 };
 
-window.connectRealtime = () => {
-  if (!isRealtimeMode()) state.multiplayerMode = 'realtime';
-  if (state.joinCode) state.network.isHost = false;
-  connectRealtimeSession();
+window.setJoinCodeInput = (value) => {
+  applyJoinCodeInput(value);
+  render();
+};
+
+window.regenerateRoomCode = () => {
+  regenerateRoomCode();
+  render();
+};
+
+window.connectAsHost = () => {
+  hostRealtimeRoom();
+  render();
+};
+
+window.connectAsJoiner = () => {
+  joinRealtimeRoom();
   render();
 };
 
@@ -2324,12 +2842,18 @@ window.disconnectRealtime = () => {
 
 window.addBot = addBot;
 window.removeBot = removeBot;
+window.renameBot = renameBot;
 window.removePlayer = removePlayer;
+window.renamePlayer = renamePlayer;
 window.movePlayer = movePlayer;
 window.moveDevice = moveDevice;
+window.reorderPlayerByDrop = reorderPlayerByDrop;
+window.reorderDeviceByDrop = reorderDeviceByDrop;
 window.scheduleAutoAdvance = scheduleAutoAdvance;
 window.clearAutoAdvance = clearAutoAdvance;
 window.getVisibleTargetsForMafia = getVisibleTargetsForMafia;
+window.toggleMap = toggleMap;
+window.closeMap = closeMap;
 
 window.addPlayerFromInput = (nameOverride = null, deviceIdOverride = null) => {
   const input = document.getElementById('newPlayerInput');
@@ -2428,10 +2952,9 @@ window.newGame = () => {
   state.mafiaBriefing = {};
   state.mafiaVotes = {};
   state.mafiaKillMethods = {};
+  state.nightAwareness = {};
   state.nightAttackCounts = {};
   state.nightAttackMethod = null;
-  state.doctorMedicineLoadout = null;
-  state.doctorMedicineMatchup = null;
   state.doctorSave = null;
   state.votes = {};
   state.intelResults = {};
@@ -2443,11 +2966,14 @@ window.newGame = () => {
   state.selectedActionTarget = null;
   state.selectedTarget = null;
   state.selectedKillMethod = null;
-  state.selectedMedicine = null;
+  state.selectedAwareness = null;
   state.selectedSave = null;
   state.selectedVote = null;
+  state.pendingWin = null;
+  state.showMap = false;
   state.discussionUnlockAt = 0;
   state.lastNarratorPromptKey = null;
+  state.pendingNarratorPhase = null;
   state.narrationLog = [];
   state.lastBotChatDay = null;
   render();
@@ -2468,6 +2994,7 @@ window.nextReveal = () => {
     state.currentPlayerIndex = 0;
     state.showRole = false;
     state.narrative = buildNarration('day');
+    primeNarratorTurn('day');
     const firstHuman = findFirstAliveHumanIndex();
     if (firstHuman !== -1) state.currentPlayerIndex = firstHuman;
     queueNarratorChatPrompt('day');
@@ -2544,30 +3071,29 @@ window.selectKillMethod = (methodId) => {
   render();
 };
 
-window.selectMedicine = (medicineId) => {
-  state.selectedMedicine = medicineId;
+window.selectNightAwareness = (awarenessId) => {
+  setNightAwareness(awarenessId);
+};
+
+window.confirmNightAwareness = () => {
+  confirmNightAwarenessForCurrent();
+  advanceNightActor();
+};
+
+window.skipNightAwareness = () => {
+  const fallback = getNightAwarenessById('listen_posts');
+  state.selectedAwareness = fallback.id;
+  confirmNightAwarenessForCurrent();
+  advanceNightActor();
+};
+
+window.selectSave = (id) => {
+  state.selectedSave = id;
   render();
 };
 
 window.continueNight = () => {
-  const allPlayers = getAllPlayers();
-  const nightActors = getNightActors();
-  const currentId = getCurrentPlayer()?.id;
-  const actorIndex = nightActors.findIndex(actor => actor.id === currentId);
-  const nextActor = actorIndex !== -1 ? nightActors[actorIndex + 1] : null;
-
-  if (nextActor) {
-    const nextIndex = allPlayers.findIndex(player => player.id === nextActor.id);
-    state.currentPlayerIndex = nextIndex !== -1 ? nextIndex : state.currentPlayerIndex;
-    state.showRole = false;
-    state.selectedTarget = null;
-    state.selectedKillMethod = null;
-    state.selectedMedicine = null;
-    render();
-  } else {
-    processNight();
-    render();
-  }
+  advanceNightActor();
 };
 
 window.confirmMafiaTarget = () => {
@@ -2577,59 +3103,16 @@ window.confirmMafiaTarget = () => {
   state.mafiaKillMethods[current.id] = state.selectedKillMethod;
   state.selectedTarget = null;
   state.selectedKillMethod = null;
-
-  const allPlayers = getAllPlayers();
-  const nightActors = getNightActors();
-  const currentActorIndex = nightActors.findIndex(actor => actor.id === current.id);
-  const nextActor = currentActorIndex !== -1 ? nightActors[currentActorIndex + 1] : null;
-
-  if (nextActor) {
-    const nextIndex = allPlayers.findIndex(player => player.id === nextActor.id);
-    state.currentPlayerIndex = nextIndex !== -1 ? nextIndex : state.currentPlayerIndex;
-    state.showRole = false;
-    render();
-  } else {
-    processNight();
-    render();
-  }
-};
-
-window.confirmDoctorMedicine = () => {
-  const choice = state.selectedMedicine || state.doctorMedicineLoadout;
-  if (!choice) return;
-  state.doctorMedicineLoadout = choice;
-  state.selectedMedicine = null;
-
-  const allPlayers = getAllPlayers();
-  const nightActors = getNightActors();
-  const currentActor = getCurrentPlayer();
-  const currentActorIndex = nightActors.findIndex(actor => actor.id === currentActor?.id);
-  const nextActor = currentActorIndex !== -1 ? nightActors[currentActorIndex + 1] : null;
-
-  if (nextActor) {
-    const nextIndex = allPlayers.findIndex(player => player.id === nextActor.id);
-    state.currentPlayerIndex = nextIndex !== -1 ? nextIndex : state.currentPlayerIndex;
-    state.showRole = false;
-    render();
-  } else {
-    processNight();
-    render();
-  }
-};
-
-window.selectSave = (id) => {
-  state.selectedSave = id;
-  render();
+  advanceNightActor();
 };
 
 window.skipDoctor = () => {
-  processMorning();
+  completeDoctorPhase();
 };
 
 window.confirmDoctorSave = () => {
   state.doctorSave = state.selectedSave;
-  state.selectedSave = null;
-  processMorning();
+  completeDoctorPhase();
 };
 
 window.afterAnnouncement = afterAnnouncement;
@@ -2664,6 +3147,7 @@ window.proceedToVote = () => {
   state.currentPlayerIndex = 0;
   state.showRole = false;
   state.narrative = buildNarration('vote');
+  primeNarratorTurn('vote');
   addNarrationLog(state.narrative, 'vote');
   queueNarratorChatPrompt('vote');
   state.chatSenderId = null;
@@ -2757,15 +3241,25 @@ window.confirmVote = () => {
 
 window.processVote = processVote;
 
+window.completeNarratorTurn = () => {
+  if (!narratorTurnIsActive(state.gamePhase)) return;
+  clearNarratorTurn();
+  render();
+};
+
 const REALTIME_FORWARD_ACTIONS = new Set([
   'goToSetup',
   'goToMultiLobby',
   'removePlayer',
+  'renamePlayer',
   'movePlayer',
   'moveDevice',
+  'reorderPlayerByDrop',
+  'reorderDeviceByDrop',
   'addPlayerFromInput',
   'addBot',
   'removeBot',
+  'renameBot',
   'selectPreset',
   'selectStory',
   'adjustRole',
@@ -2779,12 +3273,14 @@ const REALTIME_FORWARD_ACTIONS = new Set([
   'confirmDayPlan',
   'selectTarget',
   'selectKillMethod',
-  'selectMedicine',
+  'selectNightAwareness',
+  'confirmNightAwareness',
+  'skipNightAwareness',
   'continueNight',
   'confirmMafiaTarget',
-  'confirmDoctorMedicine',
   'selectSave',
   'confirmDoctorSave',
+  'completeNarratorTurn',
   'afterAnnouncement',
   'afterVoteAnnouncement',
   'openDiscussionForCurrent',

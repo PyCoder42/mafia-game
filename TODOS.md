@@ -1,80 +1,59 @@
 # TODO List
 
-Status format per item:
-- `Fixed` checkbox = implemented in code
-- `Tested` checkbox = verified in browser/Playwright
-- `🔧` = fixed in code but not yet tested
+Status key:
+- `[ ]` = not implemented yet
+- `[x]` = implemented in code
+
+Tracking rule:
+- Keep active work here.
+- After an item is thoroughly tested, remove it from this list.
 
 Priority legend:
-- `Priority-0` = highest urgency
-- `Priority-1` = core gameplay systems
-- `Priority-2` = UX/instructions/atmosphere polish (merged old turn-flow + narration/polish buckets)
-- `Priority-3` = deployment/infra/process support
+- `Priority-0` = highest urgency / gameplay-breaking
+- `Priority-1` = core systems and mode flow
+- `Priority-2` = UX, readability, and polish
+- `Priority-3` = infrastructure/process
 
 ---
 
-## Major Overhauls (Priority-0, Multi-Session)
+## Priority-0 Active Request (33 Items)
 
-- [x] Fixed | [x] Tested - Geography graph + map system overhaul.
-  Build a full node/edge geography model for each setting, including weighted movement, line-of-sight, hearing ranges, and edge types (for example: porches overlooking beach, bedrooms adjacent to hallway, mild audio bleed into nearby lobby nodes). Add a dedicated file describing the model and a dedicated data file for all map connections so night visibility, witness logic, snooping, and narration all use the same spatial source of truth.
-
-- [x] Fixed | [x] Tested - Narrative story engine overhaul.
-  Build preset backstory packs and phase narration templates that provide heavy intro story context, role-aware day/night lines, and a full morning narration sequence before discussion (including who died, who survived via medicine, and what happened). Keep narration dramatic but non-spoiler-safe for public phases.
-
----
-
-## Priority-0 Mode Rules And Critical Flow Corrections
-
-- [x] Fixed | [x] Tested - Rename multiplayer modes to plain language (`Single-device` / `Multi-device`) and remove technical protocol labels from player-facing UI.
-- [x] Fixed | [x] Tested - Remove join code/link UI from single-device mode and prevent any `file://?join=` style link output.
-- [x] Fixed | [x] Tested - Single-device mode requires at least 2 total players.
-- [x] Fixed | [x] Tested - Multi-device mode requires at least 2 total players.
-- [x] Fixed | [x] Tested - Provide robust local + internet play strategy and human-readable host/join connection UX (no localhost-only dead-end).
-- [x] Fixed | [x] Tested - Preserve secrecy in pass-and-play prompts: never include role-revealing phrasing like "for mafia".
-- [x] Fixed | [x] Tested - Single-device discussion flow: global discussion timer prompt (~5s) before per-player voting pass flow.
-- [x] Fixed | [x] Tested - Multi-device discussion flow: shared chat-only discussion without pass-to-chat prompts.
-- [x] Fixed | [x] Tested - Chat panel always visible in-corner during play when more than one device is connected.
-- [x] Fixed | [x] Tested - Multi-device turn alerts and sequencing: show which device is active (`<Device Name> is up` when it is not your device), and support explicit device-order control alongside per-device player order.
-- [x] Fixed | [x] Tested - Show vote tallies (counts per target) in results.
-
----
-
-## Priority-1 Core Gameplay And Night-System Redesign
-
-- [x] Fixed | [x] Tested - Replace separate risk/intel stats with one combined `Exposure` value and gradient percentage styling (green -> yellow -> red).
-- [x] Fixed | [x] Tested - Expand each story map beyond 4 locations with role-aware location availability (town sleep zones, detective investigation zones, mafia movement zones).
-- [x] Fixed | [x] Tested - Convert snooping to location-first geography behavior (snooping is where you go, target/person choice is the action decision).
-- [x] Fixed | [x] Tested - Bedroom terminology/mechanics redesign: use shared bedroom geography (for example "their bedroom"), not singleton "your bedroom".
-- [x] Fixed | [x] Tested - Bedroom action redesign: sleep and lock, sleep without locking, and porch/nearby vantage behavior.
-- [x] Fixed | [x] Tested - Mafia location actions redesign: location-based kill options without over-the-top role reveal styling.
-- [x] Fixed | [x] Tested - Remove or redesign broken mafia collaboration actions (`coordinate strike` and similar) with a clear, working alternative.
-- [x] Fixed | [x] Tested - Nearby witness rule: if player is near a kill event, they reliably see meaningful evidence they can report.
-- [x] Fixed | [x] Tested - Villager night behavior redesign: no full intel packet at night; night output is awareness/proximity clues and morning intel delivery.
-- [x] Fixed | [x] Tested - Detective behavior redesign: always-alert copy/mechanics, stealth-lowered risk, and meaningful search choice set.
-- [x] Fixed | [x] Tested - Doctor night medicine loadout system: choose medicine type in advance, independent of location.
-- [x] Fixed | [x] Tested - Kill-method and treatment interaction system: mafia choose attack type, treatment efficacy depends on type, and morning reveals cause-of-death details.
-- [x] Fixed | [x] Tested - Intel text guarantees: lock-room outcomes still return text, and failed findings return explicit \"inconclusive\" phrasing.
-- [x] Fixed | [x] Tested - Mafia intel feed redesign: mafia get tactical movement/snooper-room knowledge instead of town-style intel packets.
+- [x] - Narrator turn flow: narrator gets device first each phase with distinct narrator UI; copy must clearly say verbal delivery for single-device and chat delivery for multi-device.
+- [x] - Default device naming: sequential `Device 1`, `Device 2`, `Device 3` as devices are added.
+- [x] - Lobby clarity: show players grouped by device; bots shown separately (not tied to a device); only host can add bots.
+- [x] - Remove player-facing relay internals: hide `ws://...` and editable relay fields; show room code + join URL + direct hotlink.
+- [x] - Help icon polish: keep rounded-square style but remove white focus ring/border artifact when clicked.
+- [x] - Auto-generate user-friendly join links based on runtime context (`localhost`, `127.*`, `192.*`, `file://`) without technical setup text.
+- [x] - Replace arrow reordering with drag-handle UX (3-line icon on left, drag/drop behavior).
+- [x] - File-mode host/join split: support dedicated join entry path (separate join HTML path) and clear host/join choice in multiplayer.
+- [x] - Fix multi-device connection reliability issue where both devices show `Connection: offline`.
+- [x] - Add bot name editing.
+- [x] - Keep `?` help access visible at all times during play/lobby.
+- [x] - Instructions overhaul: always include exposure explanation, merge basics+gameplay tab content, and emphasize full-rules reading for this variant.
+- [x] - Bot pace slider must visibly affect turns: add animated `...` thinking indicator and apply delay consistently.
+- [x] - Fix `Blood Moon` preset balance so 11-player default does not start at mafia parity/outnumber.
+- [x] - Rename preset currently labeled `Aftershock`.
+- [x] - Separate role presets from non-role gameplay settings so role tuning can be edited independently.
+- [x] - Expand setting descriptions beyond short fragments; make them readable and informative.
+- [x] - Differentiate Station Prometheus `Cargo Hold` vs `Reactor Tunnel` (not identical exposure/routes).
+- [x] - Mafia route system redesign: location-specific options and mafia-facing risk framing (not copy/paste same 3 actions everywhere).
+- [x] - Sort action options by stat percent low -> high.
+- [x] - Add a visible map toggle/icon at top that any player can open.
+- [x] - Improve villager snoop discoverability (clear prompts/labels so it is easy to find).
+- [x] - Standardize exposure definition in UI/docs: `your exposure to information and threats`.
+- [x] - Remove technical narrator line tone (for example, `Exposure climbs as intel improves`) and replace with in-world narration.
+- [x] - Ensure narrator phase cues are consistent and non-role-spoiling (no accidental per-player secret phrasing).
+- [x] - Mafia target panel clarity: remove confusing snooper phrasing and increase contrast/readability of critical intel text.
+- [x] - Replace `noise` wording in player copy with clearer wording tied to survival chance and witness likelihood.
+- [x] - Sort attack methods and similar stat-based option lists low -> high by displayed percentage.
+- [x] - Morning doctor flow: choose who to save using intel; remove confusing alternate prompt behavior.
+- [x] - Remove medicine system completely.
+- [x] - Add meaningful night turns for villagers (single-device handoff included).
+- [x] - Endgame pacing: show event/narration sequence before declaring winner (avoid abrupt instant game-over).
+- [x] - Adjust mafia win threshold so single early kill does not immediately end the game in low-player states.
 
 ---
 
-## Priority-2 UX, Instructions, And Atmosphere (Merged Turn Flow + Atmosphere)
+## Major Overhaul (Track Only, Do Not Implement Yet)
 
-- [x] Fixed | [x] Tested - Rework presets so they are clearly and meaningfully different in playstyle.
-- [x] Fixed | [x] Tested - Add player reordering in lobbies.
-- [x] Fixed | [x] Tested - Restore auto-scroll-to-bottom behavior when adding many multiplayer names.
-- [x] Fixed | [x] Tested - Remove the circular styling around the `?` help icon.
-- [x] Fixed | [x] Tested - Tone down mafia-exclusive visual treatment (no heavy red bias, still clear to mafia players).
-- [x] Fixed | [x] Tested - Rewrite instructions with instruction-first language (especially modes/discussion/voting usage flow, not feature-discovery wording).
-- [x] Fixed | [x] Tested - Update detective helper copy to "always alert, never doze off" semantics.
-- [x] Fixed | [x] Tested - Human narrator turn system: narrator gets one turn at the start of each phase with enough context to set mood without role-spoiling details; single-device narration is verbal guidance, multi-device narration uses chat-style prompts.
-- [x] Fixed | [x] Tested - Promote high-impact options (like narrator mode/turn behavior) out of deep settings and into more visible flow controls; keep settings for fine-tuning only.
-
----
-
-## Priority-3 Deployment, Verification, And Process
-
-- [x] Fixed | [x] Tested - Align commit naming and commit timing with existing GitHub project history conventions.
-- [x] Fixed | [x] Tested - Document launch recipes for local host mode, local multi-device relay mode, and internet-hosted mode.
-- [x] Fixed | [x] Tested - Add repeatable verification checklist/scripts for single-device and multi-device regression.
-- [x] Fixed | [x] Tested - Re-verify architecture boundary after overhaul: game logic in `scripts/game.js`, rendering in `scripts/render.js`.
+- [ ] - Split project into a fuller multi-page structure (separate host/join and related JS modules) as a planned architecture cleanup after current gameplay fixes stabilize.

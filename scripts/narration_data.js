@@ -33,7 +33,7 @@ window.NARRATION_PRESETS = {
   sci_fi: {
     backstory: 'Station Prometheus was designed for deep-space research, not trust collapse. Oxygen is stable for now, but every shift report is missing lines that matter most.',
     intro: 'Station Prometheus hums at the edge of nowhere. Trust is oxygen.',
-    day: 'Route choices echo through bulkheads. Exposure climbs as intel improves.',
+    day: 'Route choices echo through bulkheads. Every choice can uncover clues and invite danger.',
     night: 'Warning lights dim. Mechanical noise masks deliberate footsteps.',
     morning: 'Systems stabilize at shift change, but the crew does not.',
     discussion: 'Cross-check logs, locations, and timing before the vote window closes.',

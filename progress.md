@@ -176,3 +176,63 @@ Pending after this coding-first slice:
   2. Mode-switch websocket error spam (auto-connect on switching to multi-device) -> connect is now explicit unless join-code flow.
   3. Name-entry focus drop after Enter -> strengthened focus restore with `requestAnimationFrame` + short timeout.
 - Re-ran full sweep + targeted assertions after fixes; all passes with no console/page errors.
+
+## 2026-02-13 - 33-item lobby/gameplay/narration refactor pass (coding before browser test)
+- Rebuilt TODO tracker first per request:
+  - replaced `TODOS.md` with active-only 33-item list + separate major-overhaul placeholder
+  - marked implemented items as `🔧 [x] Fixed | [ ] Tested` pending regression run
+- Multiplayer lobby + mode UX overhaul (`scripts/render.js`, `scripts/game.js`):
+  - removed player-facing websocket URL controls
+  - added explicit host/join panel flow in multi-device mode
+  - added room code + generated join portal URL + hotlink UI
+  - added file-path aware join URL generation (`join.html` support)
+  - added `join.html` entry page
+  - grouped players by device, separated bot list, host-only bot add/remove guard
+  - added bot rename inputs
+  - switched reorder UX from arrows to drag-handle drag/drop for devices and players
+- Device naming + relay updates:
+  - changed device default to `Device 1`
+  - added server-side sequential default assignment (`scripts/realtime_server.py`) for default-like names
+  - synced assigned device names back through presence handling in client state
+  - added relay candidate auto-fallback (`localhost` / `127.0.0.1` / hostname) in websocket connect path
+- Gameplay flow updates:
+  - removed doctor medicine system completely from state/logic/UI
+  - added non-mafia night stance system (`NIGHT_AWARENESS_OPTIONS`) and enabled villager/detective/doctor night turns
+  - morning doctor now chooses save target only; save chance uses attack profile + attacker count
+  - changed mafia win condition from parity to strict outnumber (`mafia > town`)
+  - delayed game-over declaration until after announcement/vote-announcement flow resolves
+- Mafia/intel/map presentation updates:
+  - added location-specific mafia route action generation (no shared generic 3-option everywhere)
+  - sorted action lists and attack methods low->high by displayed percentage
+  - relabeled kill-method display to `Disturbance` wording
+  - improved mafia target intel readability and snooper phrasing
+  - differentiated Prometheus `Cargo Hold` vs `Reactor Tunnel` exposure values in geography data
+  - added in-game map toggle button + visual map modal
+- Narration/help/instructions updates:
+  - rewrote narrator quick hint text to narrator-turn wording
+  - updated narrator cue card wording for single-device verbal vs multi-device chat
+  - kept help `?` visible in gameplay header and removed icon focus ring artifact in CSS
+  - merged in-game instructions tabs into `Rules + Gameplay` and `Modes`
+  - fully rewrote `INSTRUCTIONS.md` for current flow (exposure definition, anti-assumption discussion rule, no medicine, night stances, strict outnumber win threshold)
+  - updated `scripts/narration_data.js` to remove technical sci-fi day phrase
+- Documentation/process updates:
+  - updated `AGENTS.md` for host/join page split, active-only TODO convention, and new multiplayer UX expectations
+- Static verification completed (no browser execution yet in this pass):
+  - `node --check scripts/game.js`
+  - `node --check scripts/render.js`
+  - `python3 -m py_compile scripts/realtime_server.py`
+
+## 2026-02-13 - Single-checkbox TODO format + narrator-first phase gate (no testing pass)
+- Updated `TODOS.md` status semantics to one checkbox only:
+  - `[ ]` = not implemented
+  - `[x]` = implemented
+  - remove item after thorough testing
+- Kept all 33 active-request items present and marked implemented (`[x]`), with no Playwright/browser testing in this pass by explicit instruction.
+- Aligned agent guidance to the same format in `AGENTS.md` (removed old two-checkbox references from TODO rules and workflow notes).
+- Implemented enforced narrator-first gating across phases in `scripts/game.js` + `scripts/render.js`:
+  - added `pendingNarratorPhase` state and phase priming helpers
+  - phase entry now requires narrator acknowledgement before player turns continue
+  - applies to reveal/day/night/morning/announcement/discussion/vote/vote-announcement in human narrator mode
+  - added `completeNarratorTurn()` handler and realtime action forwarding support for it
+  - ensured vote-announcement now also queues narrator chat cue in multi-device mode
+- Updated `INSTRUCTIONS.md` narration section to document that narrator cue is acknowledged before player turns continue.

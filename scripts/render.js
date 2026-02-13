@@ -32,6 +32,10 @@ function isMultiDeviceChatEnabled() {
   return state.multiplayerMode === 'realtime' && (state.network.devices || []).length > 1;
 }
 
+function renderThinkingDots() {
+  return `<span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span>`;
+}
+
 function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) {
   const aliveHumans = getAliveDiscussionHumans();
   const dayMessages = state.chatMessages.filter(message => message.day === state.dayNumber);
@@ -74,7 +78,9 @@ function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) 
 
 function renderNarratorQuickControls() {
   const modeHint = state.settings.narratorMode === 'human'
-    ? (isMultiDeviceChatEnabled() ? 'Human narrator active: phase cues should be posted in chat first.' : 'Human narrator active: read phase cues aloud before play.')
+    ? (isMultiDeviceChatEnabled()
+      ? 'Human narrator active: narrator turn goes first each phase and the cue is posted in shared chat.'
+      : 'Human narrator active: narrator turn goes first each phase and the cue is spoken aloud.')
     : 'Auto narrator active.';
 
   return `
@@ -172,8 +178,13 @@ function renderSoloLobby() {
         <div class="bot-list">
           ${state.bots.map(b => `
             <div class="player-item">
-              <span class="player-name">🤖 ${b.name}</span>
-              <button class="remove-btn" onclick="removeBot('${b.id}')">×</button>
+              <span class="player-name">🤖</span>
+              <div class="player-item-actions" style="margin-left:auto">
+                <input type="text" class="input inline-edit" value="${b.name.replace(/"/g, '&quot;')}"
+                       onblur="renameBot('${b.id}', this.value)"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"/>
+                <button class="remove-btn" onclick="removeBot('${b.id}')">×</button>
+              </div>
             </div>
           `).join('')}
           ${state.bots.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:12px">No bots yet</div>' : ''}
@@ -187,6 +198,7 @@ function renderSoloLobby() {
             <div class="story-card ${state.selectedStory.id === s.id ? 'selected' : ''}" onclick="selectStory('${s.id}')">
               <div class="story-name">${s.name}</div>
               <div class="story-intro">${s.intro}</div>
+              <div class="story-setting">${s.setting}</div>
             </div>
           `).join('')}
         </div>
@@ -213,22 +225,25 @@ function renderMultiLobby() {
   const warnings = getStartWarnings();
   const blockReason = getStartBlockReason();
   const isRealtime = state.multiplayerMode === 'realtime';
-  const deviceList = state.network.devices || [];
-  const orderedDeviceIds = state.network.deviceOrder || [];
-  const orderedDeviceList = orderedDeviceIds.length > 0
-    ? orderedDeviceIds
-      .map(id => deviceList.find(device => device.deviceId === id))
-      .filter(Boolean)
-    : deviceList;
+  const orderedDeviceList = getDeviceGroupedPlayers();
   const showDeviceList = isRealtime && orderedDeviceList.length > 1;
   const waitingForHost = isRealtime && !state.network.isHost;
+  const isJoinPanel = state.realtimePanelMode === 'join';
   const realtimeStatusColor = state.network.status === 'connected'
     ? '#4ade80'
     : state.network.status === 'error'
       ? '#f87171'
       : '#fbbf24';
+  const realtimeStatusLabel = state.network.status === 'connected'
+    ? 'Connected'
+    : state.network.status === 'connecting'
+      ? 'Connecting...'
+      : 'Offline';
+  const joinPortal = isRealtime ? getJoinPortalUrl() : '';
   const shareJoinUrl = isRealtime ? getShareJoinUrl(state.gameCode) : '';
-  const runningFromFile = window.location.protocol === 'file:';
+  const connectionGuide = isRealtime ? getConnectionGuideText() : '';
+  const addBotBlocked = isRealtime && !state.network.isHost;
+  const groupedPlayers = isRealtime ? orderedDeviceList : [];
 
   return `
     <div class="container wide">
@@ -243,7 +258,7 @@ function renderMultiLobby() {
       ${renderNarratorQuickControls()}
 
       <div class="card">
-        <div class="section-label">🛰️ Device Mode</div>
+        <div class="section-label">🛰️ Multiplayer Mode</div>
         <div class="mode-switch-row">
           <button class="btn btn-small ${!isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('passplay')">Single-device</button>
           <button class="btn btn-small ${isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('realtime')">Multi-device</button>
@@ -255,17 +270,35 @@ function renderMultiLobby() {
               <input type="text" class="input" value="${state.network.deviceName.replace(/"/g, '&quot;')}" oninput="setRealtimeDeviceName(this.value)" maxlength="32"/>
             </div>
             <div class="realtime-row">
-              <label>Relay URL</label>
-              <input type="text" class="input" value="${state.network.wsUrl.replace(/"/g, '&quot;')}" oninput="setRealtimeUrl(this.value)"/>
-            </div>
-            <div class="realtime-row">
-              <div>Connection: <span style="color:${realtimeStatusColor}">${state.network.status}</span></div>
+              <div>Connection: <span style="color:${realtimeStatusColor}">${realtimeStatusLabel}</span></div>
               <div style="color:var(--text-secondary);font-size:0.85rem">${state.network.isHost ? 'Host device' : 'Client device'}</div>
             </div>
-            <div class="mode-switch-row">
-              <button class="btn btn-small btn-primary" onclick="connectRealtime()" ${state.network.connected ? 'disabled' : ''}>Connect</button>
-              <button class="btn btn-small btn-secondary" onclick="disconnectRealtime()" ${!state.network.connected ? 'disabled' : ''}>Disconnect</button>
+            <div class="mode-switch-row" style="margin-top:2px">
+              <button class="btn btn-small ${!isJoinPanel ? 'btn-primary' : 'btn-secondary'}" onclick="setRealtimePanelMode('host')">Host</button>
+              <button class="btn btn-small ${isJoinPanel ? 'btn-primary' : 'btn-secondary'}" onclick="setRealtimePanelMode('join')">Join</button>
             </div>
+            ${isJoinPanel ? `
+              <div class="realtime-row">
+                <label>Enter room code</label>
+                <input type="text" class="input" value="${state.gameCode}" oninput="setJoinCodeInput(this.value)" maxlength="8" spellcheck="false"/>
+              </div>
+              <div class="mode-switch-row">
+                <button class="btn btn-small btn-primary" onclick="connectAsJoiner()" ${state.network.connected ? 'disabled' : ''}>Join Room</button>
+                <button class="btn btn-small btn-secondary" onclick="disconnectRealtime()" ${!state.network.connected ? 'disabled' : ''}>Disconnect</button>
+              </div>
+            ` : `
+              <div class="realtime-row">
+                <label>Room code</label>
+                <div class="input-row">
+                  <input type="text" class="input" readonly value="${state.gameCode}"/>
+                  <button class="btn btn-secondary btn-small" onclick="regenerateRoomCode()">Regenerate</button>
+                </div>
+              </div>
+              <div class="mode-switch-row">
+                <button class="btn btn-small btn-primary" onclick="connectAsHost()" ${state.network.connected ? 'disabled' : ''}>Host Room</button>
+                <button class="btn btn-small btn-secondary" onclick="disconnectRealtime()" ${!state.network.connected ? 'disabled' : ''}>Disconnect</button>
+              </div>
+            `}
           </div>
         ` : `
           <div style="color:var(--text-secondary);font-size:0.9rem">
@@ -276,48 +309,42 @@ function renderMultiLobby() {
 
       ${isRealtime ? `
         <div class="card">
-          <div class="section-label">🔗 Multi-device Room</div>
+          <div class="section-label">🔗 Join Links</div>
           <div class="realtime-row" style="margin-bottom:10px">
-            <label>Room code</label>
-            <input type="text" class="input" value="${state.gameCode}" oninput="setRoomCode(this.value)" maxlength="8" spellcheck="false"/>
+            <label>Join portal URL</label>
+            <div class="input-row">
+              <input type="text" class="input" readonly value="${joinPortal || 'Unavailable'}"/>
+              <button class="copy-btn" onclick="navigator.clipboard?.writeText('${(joinPortal || '').replace(/'/g, '\\\'')}')">📋 Copy</button>
+            </div>
           </div>
-          <div class="mode-switch-row" style="margin-bottom:10px">
-            <button class="btn btn-small btn-primary" onclick="hostThisRoom()">Host This Room</button>
-            <button class="btn btn-small btn-secondary" onclick="joinThisRoom()">Join This Room</button>
+          <div class="realtime-row">
+            <label>Direct hotlink (joins this room)</label>
+            <div class="input-row">
+              <input type="text" class="input" readonly value="${shareJoinUrl || 'Unavailable'}"/>
+              <button class="copy-btn" id="copyBtn" onclick="copyLink()">📋 Copy</button>
+            </div>
           </div>
-          <div style="color:var(--text-secondary);margin-bottom:8px">
-            ${shareJoinUrl
-              ? 'Share this join link with other devices running the game.'
-              : 'Running from a local file: share the same app, relay URL, and room code instead of a join link.'}
-          </div>
-          <div class="input-row">
-            <input type="text" class="input" readonly value="${shareJoinUrl || state.gameCode}"/>
-            <button class="copy-btn" id="copyBtn" onclick="copyLink()">📋 Copy</button>
-          </div>
-          <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:10px;line-height:1.4">
-            <strong>Connection guide:</strong><br/>
-            ${runningFromFile
-              ? 'Running from file mode: share the same app build, relay URL, and room code manually.'
-              : 'Local network: open this same URL on another device and join by room code.'}<br/>
-            Internet play: use an internet-reachable site URL plus a public relay URL in the multiplayer settings.
+          <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:10px;line-height:1.4">
+            <strong>How to join:</strong> ${connectionGuide}
           </div>
         </div>
       ` : ''}
 
       ${showDeviceList ? `
         <div class="card">
-          <div class="section-label">📱 Connected Devices (${orderedDeviceList.length})</div>
+          <div class="section-label">📱 Device Order (${orderedDeviceList.length})</div>
           <div class="device-list">
-            ${orderedDeviceList.map((device, index) => `
-              <div class="player-item">
+            ${orderedDeviceList.map((device) => `
+              <div class="player-item draggable-row" draggable="${state.network.isHost ? 'true' : 'false'}"
+                   ondragstart="event.dataTransfer.setData('text/device-id','${device.deviceId}');this.classList.add('dragging-row')"
+                   ondragend="this.classList.remove('dragging-row')"
+                   ondragover="event.preventDefault()"
+                   ondrop="event.preventDefault();reorderDeviceByDrop(event.dataTransfer.getData('text/device-id'),'${device.deviceId}')">
                 <span class="player-name">
+                  ${state.network.isHost ? '<span class=\"drag-handle\" title=\"Drag to reorder\">☰</span>' : ''}
                   ${device.isHost ? '🛡️' : '📱'} ${device.deviceName}
                 </span>
                 <div class="player-item-actions">
-                  ${state.network.isHost ? `
-                    <button class="order-btn" onclick="moveDevice('${device.deviceId}', -1)" ${index === 0 ? 'disabled' : ''} title="Move device up">↑</button>
-                    <button class="order-btn" onclick="moveDevice('${device.deviceId}', 1)" ${index === orderedDeviceList.length - 1 ? 'disabled' : ''} title="Move device down">↓</button>
-                  ` : ''}
                   <span style="font-size:0.8rem;color:var(--text-secondary)">${device.deviceId === state.network.deviceId ? 'This device' : 'Online'}</span>
                 </div>
               </div>
@@ -331,22 +358,48 @@ function renderMultiLobby() {
 
       <div class="card">
         <div class="section-label">👥 Players (${state.players.length})</div>
-        <div class="player-list">
-          ${state.players.map((p, index) => `
-            <div class="player-item">
-              <span class="player-name">
-                👤 ${p.name} ✏️
-                ${isRealtime ? `<span class="player-device-chip">${p.deviceName || (p.deviceId === state.network.deviceId ? 'This device' : 'Device')}</span>` : ''}
-              </span>
-              <div class="player-item-actions">
-                <button class="order-btn" onclick="movePlayer('${p.id}', -1)" ${index === 0 ? 'disabled' : ''} title="Move up">↑</button>
-                <button class="order-btn" onclick="movePlayer('${p.id}', 1)" ${index === state.players.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
-                <button class="remove-btn" onclick="removePlayer('${p.id}')" title="Remove player">×</button>
+        ${isRealtime ? `
+          <div style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:10px">Players are grouped by device. Drag by the ☰ handle to reorder.</div>
+          <div class="player-list">
+            ${groupedPlayers.map(group => `
+              <div class="device-player-group">
+                <div class="device-group-title">${group.isHost ? '🛡️' : '📱'} ${group.deviceName}</div>
+                ${(group.players || []).map(player => `
+                  <div class="player-item draggable-row" draggable="${state.network.isHost ? 'true' : 'false'}"
+                       ondragstart="event.dataTransfer.setData('text/player-id','${player.id}');this.classList.add('dragging-row')"
+                       ondragend="this.classList.remove('dragging-row')"
+                       ondragover="event.preventDefault()"
+                       ondrop="event.preventDefault();reorderPlayerByDrop(event.dataTransfer.getData('text/player-id'),'${player.id}')">
+                    <span class="player-name">
+                      ${state.network.isHost ? '<span class=\"drag-handle\" title=\"Drag to reorder\">☰</span>' : ''}
+                      👤 ${player.name}
+                    </span>
+                    <div class="player-item-actions">
+                      <button class="remove-btn" onclick="removePlayer('${player.id}')" title="Remove player">×</button>
+                    </div>
+                  </div>
+                `).join('')}
+                ${(group.players || []).length === 0 ? '<div style="color:var(--text-secondary);font-size:0.84rem;padding:6px 0 2px 2px">No players on this device yet.</div>' : ''}
               </div>
-            </div>
-          `).join('')}
-          ${state.players.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:12px">No players yet</div>' : ''}
-        </div>
+            `).join('')}
+          </div>
+        ` : `
+          <div class="player-list">
+            ${state.players.map((p) => `
+              <div class="player-item draggable-row" draggable="true"
+                   ondragstart="event.dataTransfer.setData('text/player-id','${p.id}');this.classList.add('dragging-row')"
+                   ondragend="this.classList.remove('dragging-row')"
+                   ondragover="event.preventDefault()"
+                   ondrop="event.preventDefault();reorderPlayerByDrop(event.dataTransfer.getData('text/player-id'),'${p.id}')">
+                <span class="player-name"><span class="drag-handle" title="Drag to reorder">☰</span> 👤 ${p.name}</span>
+                <div class="player-item-actions">
+                  <button class="remove-btn" onclick="removePlayer('${p.id}')" title="Remove player">×</button>
+                </div>
+              </div>
+            `).join('')}
+            ${state.players.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:12px">No players yet</div>' : ''}
+          </div>
+        `}
         <div class="input-row">
           <input type="text" class="input ${state.nameError ? 'input-error' : ''}" id="newPlayerInput" placeholder="Add player name..."/>
           <button class="btn btn-primary btn-small" onclick="addPlayerFromInput()">Add</button>
@@ -357,15 +410,23 @@ function renderMultiLobby() {
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <span class="section-label" style="margin-bottom:0">🤖 Bots (${state.bots.length})</span>
-          <button class="btn btn-secondary btn-small" onclick="addBot()" ${allPlayers.length >= 16 ? 'disabled' : ''}>+ Add Bot</button>
+          <button class="btn btn-secondary btn-small" onclick="addBot()" ${(allPlayers.length >= 16 || addBotBlocked) ? 'disabled' : ''}>+ Add Bot</button>
         </div>
+        ${addBotBlocked ? '<div style="color:var(--text-secondary);font-size:0.82rem;margin-bottom:8px">Only the host can add or remove bots in multi-device mode.</div>' : ''}
         <div class="bot-list">
           ${state.bots.map(b => `
             <div class="player-item">
-              <span class="player-name">🤖 ${b.name}</span>
-              <button class="remove-btn" onclick="removeBot('${b.id}')">×</button>
+              <span class="player-name">🤖</span>
+              <div class="player-item-actions" style="margin-left:auto">
+                <input type="text" class="input inline-edit" value="${b.name.replace(/"/g, '&quot;')}"
+                       onblur="renameBot('${b.id}', this.value)"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+                       ${addBotBlocked ? 'disabled' : ''}/>
+                <button class="remove-btn" onclick="removeBot('${b.id}')" ${addBotBlocked ? 'disabled' : ''}>×</button>
+              </div>
             </div>
           `).join('')}
+          ${state.bots.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:12px">No bots yet</div>' : ''}
         </div>
       </div>
 
@@ -376,6 +437,7 @@ function renderMultiLobby() {
             <div class="story-card ${state.selectedStory.id === s.id ? 'selected' : ''}" onclick="selectStory('${s.id}')">
               <div class="story-name">${s.name}</div>
               <div class="story-intro">${s.intro}</div>
+              <div class="story-setting">${s.setting}</div>
             </div>
           `).join('')}
         </div>
@@ -400,6 +462,7 @@ function renderRoleConfig(allPlayers, total, warnings) {
   return `
     <div class="card">
       <div class="section-label">⚖️ Role Balance</div>
+      <div style="color:var(--text-secondary);font-size:0.84rem;margin:-4px 0 12px">Role presets only adjust role counts. Story atmosphere and other behavior settings are configured separately.</div>
       <div class="grid-2" style="margin-bottom:16px">
         ${ROLE_PRESETS.map(p => `
           <div class="preset-card ${state.selectedPreset?.id === p.id ? 'selected' : ''}"
@@ -477,76 +540,100 @@ function renderGame() {
   };
 
   let content = '';
+  const narratorTurnBlocking = typeof narratorTurnIsActive === 'function'
+    ? narratorTurnIsActive(state.gamePhase)
+    : false;
 
-  // Announcement modal
-  if ((state.gamePhase === 'announcement' || state.gamePhase === 'vote_announcement') && state.announcement) {
+  if (narratorTurnBlocking) {
+    const deliveryNote = isMultiDeviceChatEnabled()
+      ? 'Narrator first turn: post this cue in chat, then continue.'
+      : 'Narrator first turn: read this cue aloud, then continue.';
     content = `
-      <div class="modal-overlay">
-        <div class="modal-content">
-          ${renderDeathAnimationCard()}
-          <div class="modal-text">${state.announcement}</div>
-          <button class="btn btn-danger btn-lg" onclick="${state.gamePhase === 'announcement' ? 'afterAnnouncement' : 'afterVoteAnnouncement'}()">Continue</button>
-        </div>
+      <div class="card narrator-turn-card">
+        <div class="narrator-turn-title">🎙️ Narrator Turn</div>
+        <div class="narrator-turn-text">${narratorCue || getNarratorPhasePrompt(state.gamePhase)}</div>
+        <div class="narrator-turn-note">${deliveryNote}</div>
+        <button class="btn btn-warning btn-lg" style="margin-top:12px" onclick="completeNarratorTurn()">Continue to Player Turns</button>
       </div>
     `;
-  }
-
-  // Game over
-  if (state.gamePhase === 'gameover') {
-    // Build the final death message
-    let finalDeathMessage = '';
-    if (state.finalDeath) {
-      if (state.finalDeath.type === 'night') {
-        if (state.finalDeath.saved) {
-          finalDeathMessage = `${state.finalDeath.victim} was attacked but saved by the Doctor.${state.finalDeath.method ? ` Attack method: ${state.finalDeath.method}.` : ''}`;
-        } else if (state.finalDeath.victim) {
-          finalDeathMessage = `${state.finalDeath.victim} (${state.finalDeath.role}) was killed during the night.${state.finalDeath.method ? ` Method: ${state.finalDeath.method}.` : ''}`;
-        } else {
-          finalDeathMessage = 'The night passed peacefully.';
-        }
-      } else if (state.finalDeath.type === 'vote') {
-        if (state.finalDeath.victim) {
-          finalDeathMessage = `${state.finalDeath.victim} (${state.finalDeath.role}) was eliminated by vote.`;
-        } else {
-          finalDeathMessage = 'The vote was tied. No one was eliminated.';
-        }
-      }
+  } else {
+    // Announcement modal
+    if ((state.gamePhase === 'announcement' || state.gamePhase === 'vote_announcement') && state.announcement) {
+      content = `
+        <div class="modal-overlay">
+          <div class="modal-content">
+            ${renderDeathAnimationCard()}
+            <div class="modal-text">${state.announcement}</div>
+            <button class="btn btn-danger btn-lg" onclick="${state.gamePhase === 'announcement' ? 'afterAnnouncement' : 'afterVoteAnnouncement'}()">Continue</button>
+          </div>
+        </div>
+      `;
     }
 
-    content = `
-      <div class="gameover-container card">
-        <div class="gameover-icon">${state.winner === 'town' ? '🎉' : '💀'}</div>
-        <div class="gameover-title">${state.winner === 'town' ? 'Town Wins!' : 'Mafia Wins!'}</div>
-        ${finalDeathMessage ? `
-          <div class="gameover-death" style="color:var(--text-secondary);margin-bottom:12px;font-size:0.95rem">
-            ${finalDeathMessage}
-          </div>
-        ` : ''}
-        ${state.winReason ? `
-          <div class="gameover-reason" style="color:${state.winner === 'town' ? '#4ade80' : '#f87171'};margin-bottom:16px;font-weight:500;text-align:center;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px">
-            ${state.winReason}
-          </div>
-        ` : ''}
-        <div class="gameover-roles">
-          ${allPlayers.map(p => `
-            <span class="gameover-role" style="background:${ROLES[p.role]?.color}40">${ROLES[p.role]?.icon} ${p.name}</span>
-          `).join('')}
-        </div>
-        <button class="btn btn-primary btn-lg" onclick="newGame()">New Game</button>
-      </div>
-    `;
-  }
+    // Game over
+    if (state.gamePhase === 'gameover') {
+      // Build the final death message
+      let finalDeathMessage = '';
+      if (state.finalDeath) {
+        if (state.finalDeath.type === 'night') {
+          if (state.finalDeath.saved) {
+            finalDeathMessage = `${state.finalDeath.victim} was attacked but saved by the Doctor.${state.finalDeath.method ? ` Attack method: ${state.finalDeath.method}.` : ''}`;
+          } else if (state.finalDeath.victim) {
+            finalDeathMessage = `${state.finalDeath.victim} (${state.finalDeath.role}) was killed during the night.${state.finalDeath.method ? ` Method: ${state.finalDeath.method}.` : ''}`;
+          } else {
+            finalDeathMessage = 'The night passed peacefully.';
+          }
+        } else if (state.finalDeath.type === 'vote') {
+          if (state.finalDeath.victim) {
+            finalDeathMessage = `${state.finalDeath.victim} (${state.finalDeath.role}) was eliminated by vote.`;
+          } else {
+            finalDeathMessage = 'The vote was tied. No one was eliminated.';
+          }
+        }
+      }
 
-  // Phase-specific content
-  if (state.gamePhase === 'reveal') content = renderRevealPhase(current);
-  if (state.gamePhase === 'day') content = renderDayPhase(current, allPlayers);
-  if (state.gamePhase === 'night') content = renderNightPhase(current, alivePlayers);
-  if (state.gamePhase === 'morning_doctor') content = renderDoctorPhase(alivePlayers);
-  if (state.gamePhase === 'discussion') content = renderDiscussionPhase(current);
-  if (state.gamePhase === 'vote') content = renderVotePhase(current, alivePlayers);
+      content = `
+        <div class="gameover-container card">
+          <div class="gameover-icon">${state.winner === 'town' ? '🎉' : '💀'}</div>
+          <div class="gameover-title">${state.winner === 'town' ? 'Town Wins!' : 'Mafia Wins!'}</div>
+          ${finalDeathMessage ? `
+            <div class="gameover-death" style="color:var(--text-secondary);margin-bottom:12px;font-size:0.95rem">
+              ${finalDeathMessage}
+            </div>
+          ` : ''}
+          ${state.winReason ? `
+            <div class="gameover-reason" style="color:${state.winner === 'town' ? '#4ade80' : '#f87171'};margin-bottom:16px;font-weight:500;text-align:center;padding:12px;background:rgba(0,0,0,0.2);border-radius:8px">
+              ${state.winReason}
+            </div>
+          ` : ''}
+          <div class="gameover-roles">
+            ${allPlayers.map(p => `
+              <span class="gameover-role" style="background:${ROLES[p.role]?.color}40">${ROLES[p.role]?.icon} ${p.name}</span>
+            `).join('')}
+          </div>
+          <button class="btn btn-primary btn-lg" onclick="newGame()">New Game</button>
+        </div>
+      `;
+    }
+
+    // Phase-specific content
+    if (state.gamePhase === 'reveal') content = renderRevealPhase(current);
+    if (state.gamePhase === 'day') content = renderDayPhase(current, allPlayers);
+    if (state.gamePhase === 'night') content = renderNightPhase(current, alivePlayers);
+    if (state.gamePhase === 'morning_doctor') content = renderDoctorPhase(alivePlayers);
+    if (state.gamePhase === 'discussion') content = renderDiscussionPhase(current);
+    if (state.gamePhase === 'vote') content = renderVotePhase(current, alivePlayers);
+  }
 
   return `
     <div class="container wide">
+      <div class="header-bar" style="margin-bottom:8px">
+        <span></span>
+        <div class="header-actions">
+          <button class="btn-icon btn-secondary" onclick="toggleMap()" title="Open map">🗺️</button>
+          <button class="btn-icon btn-primary" onclick="showInstructions()">?</button>
+        </div>
+      </div>
       <div class="phase-header">
         <div class="phase-title" style="color:${phaseColors[state.gamePhase]}">${phaseLabels[state.gamePhase]}</div>
         ${!['reveal', 'gameover', 'announcement', 'vote_announcement'].includes(state.gamePhase)
@@ -559,16 +646,6 @@ function renderGame() {
       ${showDeviceTurnBanner ? `
         <div class="device-turn-banner ${myDeviceTurn ? 'device-turn-local' : 'device-turn-remote'}">
           ${myDeviceTurn ? `Your device (${currentDeviceName}) is going now.` : `${currentDeviceName} is going now.`}
-        </div>
-      ` : ''}
-
-      ${narratorCue && !['announcement', 'vote_announcement', 'gameover'].includes(state.gamePhase) ? `
-        <div class="card narrator-turn-card">
-          <div class="narrator-turn-title">🎙️ Narrator Cue</div>
-          <div class="narrator-turn-text">${narratorCue}</div>
-          <div class="narrator-turn-note">
-            ${isMultiDeviceChatEnabled() ? 'Post the cue in multi-device chat before players act.' : 'Deliver this cue verbally before players act.'}
-          </div>
         </div>
       ` : ''}
 
@@ -614,7 +691,70 @@ function renderGame() {
 
       ${content}
     </div>
+    ${state.showMap ? renderMapModal() : ''}
     ${showCornerChat ? renderMultiDeviceChatPanel({ prominent: true, corner: true }) : ''}
+  `;
+}
+
+function renderMapModal() {
+  const graph = state.selectedStory?.mapGraph || { nodes: [], edges: [] };
+  const nodes = graph.nodes || [];
+  const edges = graph.edges || [];
+  const exposureByNodeId = Object.fromEntries((state.selectedStory.locations || []).map(location => [location.id, location.exposure || 0.5]));
+  const width = 560;
+  const height = 330;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const orbit = Math.min(width, height) * 0.35;
+  const nodeCoords = {};
+
+  nodes.forEach((node, index) => {
+    const angle = (Math.PI * 2 * index) / Math.max(1, nodes.length);
+    nodeCoords[node.id] = {
+      x: Math.round(centerX + Math.cos(angle) * orbit),
+      y: Math.round(centerY + Math.sin(angle) * orbit)
+    };
+  });
+
+  return `
+    <div class="modal-overlay" onclick="closeMap()">
+      <div class="map-modal" onclick="event.stopPropagation()">
+        <div class="map-modal-header">
+          <div>
+            <div class="section-label" style="margin-bottom:4px">🗺️ ${state.selectedStory.name} Map</div>
+            <div style="color:var(--text-secondary);font-size:0.86rem">Exposure = your exposure to information and threats.</div>
+          </div>
+          <button class="btn btn-secondary btn-small" onclick="closeMap()">Close</button>
+        </div>
+        <svg viewBox="0 0 ${width} ${height}" class="map-svg">
+          ${edges.map(edge => {
+            const from = nodeCoords[edge.from];
+            const to = nodeCoords[edge.to];
+            if (!from || !to) return '';
+            const opacity = Math.max(0.18, Math.min(0.85, Number(edge.hearing || 0.5)));
+            return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="rgba(148,163,184,${opacity})" stroke-width="${Math.max(1, Number(edge.distance || 1))}"/>`;
+          }).join('')}
+          ${nodes.map(node => {
+            const point = nodeCoords[node.id];
+            const exposure = getExposureColor(exposureByNodeId[node.id] ?? 0.5);
+            return `
+              <g>
+                <circle cx="${point.x}" cy="${point.y}" r="21" fill="rgba(15,23,42,0.9)" stroke="${exposure}" stroke-width="2.6"/>
+                <text x="${point.x}" y="${point.y - 28}" text-anchor="middle" font-size="11" fill="#e2e8f0">${node.name}</text>
+              </g>
+            `;
+          }).join('')}
+        </svg>
+        <div class="map-node-grid">
+          ${nodes.map(node => `
+            <div class="map-node-pill">
+              <span class="map-node-name">${node.name}</span>
+              <span class="map-node-type">${node.type.replace(/_/g, ' ')}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -677,8 +817,8 @@ function renderRevealPhase(current) {
     scheduleAutoAdvance(`reveal_${current.id}`, 'nextReveal');
     return `
       <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is reviewing their role...</div>
-        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
+        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is reviewing their role ${renderThinkingDots()}</div>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Continuing in ~${state.botDelayMs}ms</div>
       </div>
     `;
   }
@@ -727,8 +867,8 @@ function renderDayPhase(current, allPlayers) {
     scheduleAutoAdvance(`day_${current.id}_${state.dayNumber}`, 'skipBotDay');
     return `
       <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is planning...</div>
-        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
+        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is planning ${renderThinkingDots()}</div>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Continuing in ~${state.botDelayMs}ms</div>
       </div>
     `;
   }
@@ -770,13 +910,18 @@ function renderDayPhase(current, allPlayers) {
       </div>
 
       <div class="section-label">1. Where will you be tonight?</div>
+      <div style="color:var(--text-secondary);font-size:0.84rem;margin-bottom:10px">
+        ${isMafia
+          ? 'Risk reflects how exposed your route is to witnesses.'
+          : 'Exposure means your exposure to information and threats.'}
+      </div>
       <div class="location-grid">
         ${sortedLocations.map(l => `
             <div class="location-card ${state.selectedLocation === l.id ? 'selected' : ''}" onclick="selectLocation('${l.id}')">
               <div class="location-header">
                 <span class="location-name">${l.name}</span>
                 <span class="exposure-badge" style="color:${getExposureColor(l.exposure || 0)};border-color:${getExposureColor(l.exposure || 0)}">
-                  Exposure ${getExposurePct(l.exposure || 0)}%
+                  ${isMafia ? 'Risk' : 'Exposure'} ${getExposurePct(l.exposure || 0)}%
                 </span>
               </div>
               <span style="font-size:0.8rem;color:var(--text-secondary)">${(l.tags || []).join(' • ') || l.nodeType || ''}</span>
@@ -786,16 +931,17 @@ function renderDayPhase(current, allPlayers) {
 
       ${location ? `
         <div class="section-label">
-          ${isMafia ? '2. Mafia route options' : '2. What will you do there?'}
+          ${isMafia ? '2. Route options (low risk → high risk)' : '2. Choose your action (low exposure → high exposure)'}
         </div>
+        ${!isMafia ? '<div style="color:#fde68a;font-size:0.84rem;margin-bottom:8px">Tip: actions tagged "Snoop" are the quickest way to gather stronger clues.</div>' : ''}
         <div class="action-list">
-          ${actions.map(ac => `
+          ${[...actions].sort((a, b) => (a.exposure || 0) - (b.exposure || 0)).map(ac => `
             <div class="action-card ${state.selectedAction?.id === ac.id ? 'selected' : ''}" onclick="selectAction('${ac.id}')">
               <div class="action-header">
-                <span class="action-name">${ac.name}</span>
+                <span class="action-name">${ac.name} ${ac.kind === 'snoop' ? '<span class="action-tag">Snoop</span>' : ''}</span>
                 <div class="action-stats">
                   <span class="exposure-chip" style="color:${getExposureColor(ac.exposure || 0)};border-color:${getExposureColor(ac.exposure || 0)}">
-                    Exposure ${getExposurePct(ac.exposure || 0)}%
+                    ${isMafia ? 'Risk' : 'Exposure'} ${getExposurePct(ac.exposure || 0)}%
                   </span>
                 </div>
               </div>
@@ -850,7 +996,7 @@ function renderNightPhase(current, alivePlayers) {
         <div style="color:var(--text-secondary);margin-bottom:16px">
           ${current.role === 'mafia' ? 'The shadows move...' : 'Everyone stays alert through the night.'}
         </div>
-        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Continuing ${renderThinkingDots()}</div>
       </div>
     `;
   }
@@ -867,103 +1013,122 @@ function renderNightPhase(current, alivePlayers) {
     `;
   }
 
-  if (current.role === 'doctor') {
-    const selectedMedicine = state.selectedMedicine || state.doctorMedicineLoadout;
+  if (current.role === 'mafia') {
+    const mafiaView = getVisibleTargetsForMafia(current.id, alivePlayers);
+    const targets = mafiaView.targets || [];
+    const visionNote = mafiaView.mode === 'nearby'
+      ? 'Visible targets are currently near your area.'
+      : 'No nearby targets were visible, so your search widened across the map.';
+    const snooperIntel = state.mafiaSnooperIntel[current.id] || {};
+    const briefing = state.mafiaBriefing[current.id] || [];
+    const sortedMethods = [...KILL_METHODS].sort((a, b) => (a.noise || 0) - (b.noise || 0));
+
     return `
       <div class="card">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-          <span style="color:${ROLES.doctor.color}">${ROLES.doctor.icon}</span>
+          <span style="color:${ROLES.mafia.color}">${ROLES.mafia.icon}</span>
           <span>${current.name}</span>
-          <span style="font-size:0.85rem;color:#93c5fd">(Doctor night loadout)</span>
+          <span style="font-size:0.85rem;color:var(--text-secondary)">(Night strike)</span>
         </div>
-        <div class="section-label">Select medicine to prepare before morning:</div>
-        <div class="action-list">
-          ${DOCTOR_MEDICINES.map(medicine => `
-            <div class="action-card ${selectedMedicine === medicine.id ? 'selected' : ''}" onclick="selectMedicine('${medicine.id}')">
-              <div class="action-header">
-                <span class="action-name">💉 ${medicine.name}</span>
+
+        <div class="section-label">🎯 Choose your target</div>
+        <div class="mafia-intel">
+          <div class="mafia-intel-header">Night visibility</div>
+          <div style="font-size:0.95rem;color:#e2e8f0">${visionNote}</div>
+          ${briefing.map(line => `<div style="font-size:0.84rem;color:#e2e8f0;margin-top:5px">• ${line}</div>`).join('')}
+        </div>
+
+        ${targets.length > 0 ? `
+        <div class="target-list">
+          ${targets.map(p => {
+            const plan = state.nightPlans[p.id];
+            const snoopers = snooperIntel[p.id] || [];
+            const trackedTargetName = plan?.actionTarget
+              ? getAllPlayers().find(player => player.id === plan.actionTarget)?.name
+              : null;
+            return `
+              <div class="target-card ${state.selectedTarget === p.id ? 'selected' : ''}" onclick="selectTarget('${p.id}')">
+                <div class="target-info">
+                  <div class="target-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div>
+                  <div class="target-details">
+                    <span class="target-location">📍 ${plan?.locationName || 'Unknown'}</span>
+                    ${plan?.action?.name ? `<span class="target-action">→ ${plan.action.name}</span>` : ''}
+                    ${trackedTargetName ? `<span class="target-action">Tracking: ${trackedTargetName}</span>` : ''}
+                  </div>
+                  ${snoopers.length > 0 ? `<div class="target-snoopers">👀 Snoopers spotted around ${p.name}'s bedroom zone: ${snoopers.join(', ')}</div>` : ''}
+                </div>
+                <div class="target-kill-btn">🎯 Mark</div>
               </div>
-              <div class="action-desc">${medicine.desc}</div>
+            `;
+          }).join('')}
+        </div>
+        ` : `
+        <div class="card" style="margin-bottom:16px;text-align:center">
+          <div style="color:var(--text-secondary)">No eligible targets visible.</div>
+        </div>
+        `}
+
+        <div class="section-label">Choose attack method (low disturbance to high disturbance):</div>
+        <div class="action-list">
+          ${sortedMethods.map(method => `
+            <div class="action-card ${state.selectedKillMethod === method.id ? 'selected' : ''}" onclick="selectKillMethod('${method.id}')">
+              <div class="action-header">
+                <span class="action-name">${method.name}</span>
+                <span class="exposure-chip" style="color:${getExposureColor(method.noise || 0)};border-color:${getExposureColor(method.noise || 0)}">
+                  Disturbance ${getExposurePct(method.noise || 0)}%
+                </span>
+              </div>
+              <div class="action-desc">${method.desc}</div>
             </div>
           `).join('')}
         </div>
-        <button class="btn btn-primary btn-full btn-lg" onclick="confirmDoctorMedicine()" ${!selectedMedicine ? 'disabled' : ''}>
-          Confirm Medicine
+
+        <button class="btn btn-primary btn-full btn-lg" onclick="confirmMafiaTarget()" ${(!state.selectedTarget || !state.selectedKillMethod) ? 'disabled' : ''}>
+          Confirm Night Strike
         </button>
       </div>
     `;
   }
 
-  const mafiaView = getVisibleTargetsForMafia(current.id, alivePlayers);
-  const targets = mafiaView.targets || [];
-  const visionNote = mafiaView.mode === 'nearby'
-    ? 'You only see people currently around your area.'
-    : 'No one nearby, so your search spread wider across the map.';
-  const snooperIntel = state.mafiaSnooperIntel[current.id] || {};
-  const briefing = state.mafiaBriefing[current.id] || [];
+  const selectedAwareness = state.selectedAwareness
+    || state.nightAwareness[current.id]
+    || NIGHT_AWARENESS_OPTIONS[1].id;
+  const awarenessChoices = [...NIGHT_AWARENESS_OPTIONS].sort((a, b) => (a.exposureMod || 0) - (b.exposureMod || 0));
+  const rolePrompt = current.role === 'doctor'
+    ? 'Pick your night stance. In the morning, you will choose who to save.'
+    : current.role === 'detective'
+      ? 'Pick your night stance. Detectives stay alert and naturally harder to notice.'
+      : 'Pick your night stance. Your choice affects how much you might notice.';
 
   return `
     <div class="card">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-        <span style="color:${ROLES.mafia.color}">${ROLES.mafia.icon}</span>
+        <span style="color:${ROLES[current.role]?.color}">${ROLES[current.role]?.icon}</span>
         <span>${current.name}</span>
-        <span style="font-size:0.85rem;color:var(--text-secondary)">(Night strike)</span>
+        <span style="font-size:0.85rem;color:var(--text-secondary)">(Night awareness turn)</span>
       </div>
 
-      <div class="section-label">🎯 Choose your target</div>
-      <div class="mafia-intel">
-        <div class="mafia-intel-header">Night visibility</div>
-        <div style="font-size:0.9rem;color:var(--text-primary)">${visionNote}</div>
-        ${briefing.map(line => `<div style="font-size:0.82rem;color:var(--text-secondary);margin-top:4px">• ${line}</div>`).join('')}
-      </div>
-
-      ${targets.length > 0 ? `
-      <div class="target-list">
-        ${targets.map(p => {
-          const plan = state.nightPlans[p.id];
-          const snoopers = snooperIntel[p.id] || [];
-          const trackedTargetName = plan?.actionTarget
-            ? getAllPlayers().find(player => player.id === plan.actionTarget)?.name
-            : null;
+      <div style="color:var(--text-secondary);margin-bottom:12px">${rolePrompt}</div>
+      <div class="section-label">Night stance (low exposure to high exposure)</div>
+      <div class="action-list">
+        ${awarenessChoices.map(option => {
+          const exposure = clampExposure(0.5 + (option.exposureMod || 0));
           return `
-            <div class="target-card ${state.selectedTarget === p.id ? 'selected' : ''}" onclick="selectTarget('${p.id}')">
-              <div class="target-info">
-                <div class="target-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div>
-                <div class="target-details">
-                  <span class="target-location">📍 ${plan?.locationName || 'Unknown'}</span>
-                  ${plan?.action?.name ? `<span class="target-action">→ ${plan.action.name}</span>` : ''}
-                  ${trackedTargetName ? `<span class="target-action">Tracking: ${trackedTargetName}</span>` : ''}
-                </div>
-                ${snoopers.length > 0 ? `<div class="target-snoopers">👀 Spotted snoopers nearby: ${snoopers.join(', ')}</div>` : ''}
+            <div class="action-card ${selectedAwareness === option.id ? 'selected' : ''}" onclick="selectNightAwareness('${option.id}')">
+              <div class="action-header">
+                <span class="action-name">${option.name}</span>
+                <span class="exposure-chip" style="color:${getExposureColor(exposure)};border-color:${getExposureColor(exposure)}">
+                  Exposure ${getExposurePct(exposure)}%
+                </span>
               </div>
-              <div class="target-kill-btn">🎯 Kill</div>
+              <div class="action-desc">${option.desc}</div>
             </div>
           `;
         }).join('')}
       </div>
-      ` : `
-      <div class="card" style="margin-bottom:16px;text-align:center">
-        <div style="color:var(--text-secondary)">No eligible targets visible.</div>
-      </div>
-      `}
 
-      <div class="section-label">Choose attack method:</div>
-      <div class="action-list">
-        ${KILL_METHODS.map(method => `
-          <div class="action-card ${state.selectedKillMethod === method.id ? 'selected' : ''}" onclick="selectKillMethod('${method.id}')">
-            <div class="action-header">
-              <span class="action-name">${method.name}</span>
-              <span class="exposure-chip" style="color:${getExposureColor(method.noise || 0)};border-color:${getExposureColor(method.noise || 0)}">
-                Noise ${getExposurePct(method.noise || 0)}%
-              </span>
-            </div>
-            <div class="action-desc">${method.desc}</div>
-          </div>
-        `).join('')}
-      </div>
-
-      <button class="btn btn-primary btn-full btn-lg" onclick="confirmMafiaTarget()" ${(!state.selectedTarget || !state.selectedKillMethod) ? 'disabled' : ''}>
-        Confirm Night Strike
+      <button class="btn btn-primary btn-full btn-lg" onclick="confirmNightAwareness()">
+        Confirm Night Stance
       </button>
     </div>
   `;
@@ -971,14 +1136,18 @@ function renderNightPhase(current, alivePlayers) {
 
 function renderDoctorPhase(alivePlayers) {
   const doctor = alivePlayers.find(p => p.role === 'doctor' && !p.isBot);
-  const medicine = DOCTOR_MEDICINES.find(item => item.id === state.doctorMedicineLoadout);
+  const method = getKillMethodById(state.nightAttackMethod || KILL_METHODS[0].id);
+  const targetId = state.nightTarget;
+  const likelyVictim = targetId ? alivePlayers.find(player => player.id === targetId) : null;
+  const attackCount = targetId ? (state.nightAttackCounts[targetId] || 1) : 1;
+  const saveChance = getDoctorSaveChance(method, attackCount);
 
   if (!doctor) {
     scheduleAutoAdvance(`doctor_auto_${state.dayNumber}`, 'skipDoctor');
     return `
       <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary);margin-bottom:12px">💉 The doctor makes their choice...</div>
-        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
+        <div style="color:var(--text-secondary);margin-bottom:12px">💉 The doctor makes their choice ${renderThinkingDots()}</div>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Continuing in ~${state.botDelayMs}ms</div>
       </div>
     `;
   }
@@ -1001,16 +1170,16 @@ function renderDoctorPhase(alivePlayers) {
   return `
     <div class="card" style="border-color:#2563eb">
       <div class="section-label" style="color:#60a5fa">💉 Save one person from death tonight</div>
-      <p style="color:var(--text-secondary);margin-bottom:6px">Save chance is not guaranteed and drops when multiple attackers focus one target.</p>
-      <p style="color:var(--text-secondary);margin-bottom:12px">
-        Prepared medicine: <strong>${medicine?.name || 'Trauma Kit (default)'}</strong>${medicine ? ` — ${medicine.desc}` : ''}
-      </p>
+      <p style="color:var(--text-secondary);margin-bottom:6px">Save chance is never guaranteed and drops when multiple attackers focus one target.</p>
+      <p style="color:var(--text-secondary);margin-bottom:12px">Current likely attack profile: <strong>${method.name}</strong> (disturbance ${getExposurePct(method.noise || 0)}%). Estimated save chance against this profile: <strong>${Math.round(saveChance * 100)}%</strong>.</p>
+      ${likelyVictim ? `<p style="color:#bfdbfe;margin-bottom:10px">Most likely target by mafia vote pattern: <strong>${likelyVictim.name}</strong></p>` : ''}
       <div class="target-grid">
         ${alivePlayers.map(p => `
           <button class="target-btn ${state.selectedSave === p.id ? 'selected' : ''}"
                   style="${state.selectedSave === p.id ? 'background:rgba(37,99,235,0.4);border-color:#2563eb' : ''}"
                   onclick="selectSave('${p.id}')">
             ${p.isBot ? '🤖 ' : ''}${p.name}
+            ${state.intelResults[p.id]?.heard ? `<div style="font-size:0.74rem;color:#cbd5e1;margin-top:3px">${state.intelResults[p.id].heard}</div>` : ''}
           </button>
         `).join('')}
       </div>
@@ -1089,8 +1258,8 @@ function renderVotePhase(current, alivePlayers) {
     scheduleAutoAdvance(`vote_bot_${current.id}_${state.dayNumber}`, 'skipBotVote');
     return `
       <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is voting...</div>
-        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
+        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is voting ${renderThinkingDots()}</div>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Continuing in ~${state.botDelayMs}ms</div>
       </div>
     `;
   }
@@ -1102,7 +1271,7 @@ function renderVotePhase(current, alivePlayers) {
       <div class="card" style="text-align:center">
         <div style="font-size:1.25rem;margin-bottom:8px">💀 You are dead</div>
         <div style="color:var(--text-secondary);margin-bottom:16px">The dead cannot vote.</div>
-        <div style="color:var(--text-secondary);font-size:0.9rem">Auto-continuing...</div>
+        <div style="color:var(--text-secondary);font-size:0.9rem">Continuing ${renderThinkingDots()}</div>
       </div>
     `;
   }
@@ -1118,11 +1287,14 @@ function renderVotePhase(current, alivePlayers) {
     `;
   }
 
-  const myIntel = state.intelResults[current.id] || {
+  const isMafia = current.role === 'mafia';
+  const myIntel = !isMafia ? (state.intelResults[current.id] || {
     heard: 'No strong clue from last night.',
     saw: null,
-    nearby: null
-  };
+    nearby: null,
+    awareness: null
+  }) : null;
+  const mafiaNotes = isMafia ? (state.mafiaBriefing[current.id] || []) : [];
   const otherPlayers = alivePlayers.filter(p => p.id !== current.id);
 
   return `
@@ -1132,13 +1304,23 @@ function renderVotePhase(current, alivePlayers) {
         <span>${current.name}</span>
       </div>
 
-      <div class="intel-box" style="margin-bottom:16px">
-        <div class="intel-header" style="font-size:0.8rem">Your intel:</div>
-        ${myIntel.heard ? `<div style="font-size:0.9rem">👂 ${myIntel.heard}</div>` : ''}
-        ${myIntel.saw ? `<div style="font-size:0.9rem;font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
-        ${myIntel.nearby ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
-        ${myIntel.cause ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.cause}</div>` : ''}
-      </div>
+      ${!isMafia ? `
+        <div class="intel-box" style="margin-bottom:16px">
+          <div class="intel-header" style="font-size:0.8rem">Your intel:</div>
+          ${myIntel.heard ? `<div style="font-size:0.9rem">👂 ${myIntel.heard}</div>` : ''}
+          ${myIntel.saw ? `<div style="font-size:0.9rem;font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
+          ${myIntel.nearby ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
+          ${myIntel.awareness ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.awareness}</div>` : ''}
+          ${myIntel.cause ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.cause}</div>` : ''}
+        </div>
+      ` : `
+        <div class="mafia-intel" style="margin-bottom:16px">
+          <div class="mafia-intel-header">Mafia tactical notes</div>
+          ${mafiaNotes.length === 0
+            ? '<div style="font-size:0.9rem;color:#e2e8f0">No special sightings were confirmed this night.</div>'
+            : mafiaNotes.map(note => `<div style="font-size:0.88rem;color:#e2e8f0;margin-top:4px">• ${note}</div>`).join('')}
+        </div>
+      `}
 
       <div class="section-label">Vote to eliminate:</div>
       <div class="target-grid">
@@ -1164,52 +1346,43 @@ function renderVotePhase(current, alivePlayers) {
 
 function renderInstructionsModal() {
   const tabs = [
-    { id: 'basics', label: '🎮 Basics' },
-    { id: 'variant', label: '🧩 Gameplay' },
-    { id: 'multiplayer', label: '👥 Modes' }
+    { id: 'rules', label: '📘 Rules + Gameplay' },
+    { id: 'modes', label: '👥 Modes' }
   ];
+  const activeTab = tabs.some(tab => tab.id === state.instructionsTab) ? state.instructionsTab : 'rules';
 
   let content = '';
-  if (state.instructionsTab === 'basics') {
+  if (activeTab === 'rules') {
     content = `
-      <h3 style="color:var(--purple-accent);margin-bottom:12px">🎮 Mafia Basics</h3>
-      <p><strong>Town wins:</strong> all Mafia eliminated.</p>
-      <p style="margin-top:8px"><strong>Mafia wins:</strong> living Mafia are equal to or greater than living Town.</p>
-      <p style="margin-top:12px"><strong>Roles:</strong></p>
-      <p style="color:var(--text-secondary)">${getRoleDisplayName('villager')}: gather intel and vote.</p>
-      <p style="color:var(--text-secondary)">Mafia: coordinate kills secretly.</p>
-      <p style="color:var(--text-secondary)">Doctor: try to save one target (not guaranteed).</p>
-      <p style="color:var(--text-secondary)">Detective: stronger snoop intel, harder to notice.</p>
-      <p style="margin-top:12px"><strong>Cycle:</strong> Reveal → Day Plan → Night → Morning → Discussion → Vote.</p>
-    `;
-  } else if (state.instructionsTab === 'variant') {
-    content = `
-      <h3 style="color:var(--purple-accent);margin-bottom:12px">🧩 This Version</h3>
-      <div style="margin-bottom:16px">
-        <h4 style="margin-bottom:4px">1) Day Planning</h4>
-        <p style="color:var(--text-secondary)">Pick a location and action. Higher Exposure usually produces stronger clues, but raises danger.</p>
+      <h3 style="color:var(--purple-accent);margin-bottom:12px">Read This Full Variant</h3>
+      <p><strong>Win goals:</strong> Town wins by eliminating all Mafia. Mafia wins when Mafia living count is greater than Town living count.</p>
+      <p style="margin-top:8px"><strong>Exposure:</strong> exposure is your exposure to information and threats. Higher exposure usually gives stronger clues, but it also makes you easier to notice.</p>
+      <p style="margin-top:8px;color:var(--text-secondary)">Important social rule: a player saying something does not prove it is true. They may be reporting a real clue, lying as Mafia, or trolling. Use timelines, nearby sightings, and contradictions before voting.</p>
+      <div style="margin-top:14px">
+        <h4 style="margin-bottom:4px">1) Reveal</h4>
+        <p style="color:var(--text-secondary)">Each player privately views their role. Keep this private.</p>
       </div>
-      <div style="margin-bottom:16px">
-        <h4 style="margin-bottom:4px">2) Night Resolution</h4>
-        <p style="color:var(--text-secondary)">Mafia picks a target and kill method based on nearby visibility. Doctors prep medicine at night, then pick who to save in the morning.</p>
+      <div style="margin-top:10px">
+        <h4 style="margin-bottom:4px">2) Day Planning</h4>
+        <p style="color:var(--text-secondary)">Choose a location and action. Actions are ordered low exposure to high exposure. Snoop actions are the easiest way to gather stronger clues.</p>
       </div>
-      <div style="margin-bottom:16px">
-        <h4 style="margin-bottom:4px">3) Morning Intel</h4>
-        <p style="color:var(--text-secondary)">Everyone gets intel text, even if inconclusive. Detectives stay alert and stealthy, so their clues are usually stronger.</p>
+      <div style="margin-top:10px">
+        <h4 style="margin-bottom:4px">3) Night</h4>
+        <p style="color:var(--text-secondary)">Mafia choose target + attack method. Non-mafia players choose a night stance. Doctors choose who to save in the morning phase.</p>
       </div>
-      <div>
-        <h4 style="margin-bottom:4px">4) Discussion Then Vote</h4>
-        <p style="color:var(--text-secondary)">Each player reviews intel, discusses, then everyone votes to eliminate one person.</p>
+      <div style="margin-top:10px">
+        <h4 style="margin-bottom:4px">4) Morning + Discussion + Vote</h4>
+        <p style="color:var(--text-secondary)">Morning announces outcomes and cause details. Discussion happens before voting. Then each player votes; tallies are shown.</p>
       </div>
     `;
   } else {
     content = `
       <h3 style="color:var(--purple-accent);margin-bottom:12px">👥 Modes</h3>
-      <p><strong>Solo:</strong> one human player with bots. Use this to learn locations, exposure, and role flow.</p>
-      <p style="margin-top:8px"><strong>Multiplayer single-device:</strong> one shared screen with private handoff. After morning intel, everyone discusses before voting turns begin.</p>
-      <p style="margin-top:8px"><strong>Multiplayer multi-device:</strong> each device joins the same room. Discussion happens in shared chat before host advances voting.</p>
-      <p style="margin-top:8px"><strong>Discussion usage:</strong> compare location routes, nearby sightings, and cause-of-death clues before locking votes.</p>
-      <p style="margin-top:8px"><strong>Bot chat:</strong> when enabled, bots add short non-spoiler lines during debate.</p>
+      <p><strong>Solo:</strong> one human player + bots.</p>
+      <p style="margin-top:8px"><strong>Multiplayer single-device:</strong> pass-and-play on one device. Discussion prompt appears before private vote turns.</p>
+      <p style="margin-top:8px"><strong>Multiplayer multi-device:</strong> each device joins the same room. Keep the shared chat visible during discussion, then host advances to voting.</p>
+      <p style="margin-top:8px"><strong>Narrator mode:</strong> narrator gets a phase turn at the start of each phase. In single-device, cue is read aloud. In multi-device, cue is posted in chat.</p>
+      <p style="margin-top:8px"><strong>Device order:</strong> host can reorder devices and players on each device to control pass/vote flow.</p>
     `;
   }
 
@@ -1218,7 +1391,7 @@ function renderInstructionsModal() {
       <div class="instructions-modal" onclick="event.stopPropagation()">
         <div class="instructions-tabs">
           ${tabs.map(t => `
-            <button class="instructions-tab ${state.instructionsTab === t.id ? 'active' : ''}" onclick="setInstructionsTab('${t.id}')">
+            <button class="instructions-tab ${activeTab === t.id ? 'active' : ''}" onclick="setInstructionsTab('${t.id}')">
               ${t.label}
             </button>
           `).join('')}

@@ -19,14 +19,16 @@ cd mafia-game
 python3 -m http.server 8000
 # Optional for realtime multi-device mode:
 # python3 scripts/realtime_server.py --host 0.0.0.0 --port 8765
-# Open http://localhost:8000
+# Host flow: open http://localhost:8000
+# Join flow: open http://localhost:8000/join.html
 ```
 
 ## Repository Layout
 
 ```
 mafia-game/
-├── index.html           # Entry point
+├── index.html           # Host entry point
+├── join.html            # Join-focused entry point
 ├── styles/main.css      # Styling
 ├── scripts/
 │   ├── game.js          # State, game logic, event handlers
@@ -73,16 +75,12 @@ If code behavior and docs diverge, update docs and/or code in the same work stre
 
 ## TODO Status Rules
 
-`TODOS.md` uses two explicit checkboxes per item:
-- `Fixed`: code implemented
-- `Tested`: behavior verified in browser/Playwright
+`TODOS.md` uses one checkbox per item:
+- `[ ]` = not implemented yet
+- `[x]` = implemented in code
 
-Marker meanings:
-- `[ ] Fixed | [ ] Tested` = not implemented
-- `🔧 [x] Fixed | [ ] Tested` = implemented but not yet validated
-- `[x] Fixed | [x] Tested` = implemented and validated
-
-No separate "Completed" section. Keep items in their impact category.
+No separate "Completed" section.
+Current team preference: once an item is thoroughly tested, remove it from `TODOS.md` so the file stays active-only.
 
 ## Testing Workflow
 
@@ -91,7 +89,7 @@ For any meaningful gameplay/UI change:
 2. Run quick static/smoke checks (`scripts/run_quick_checks.sh`).
 3. Exercise changed flow with Playwright.
 4. Log exact outcomes in `TESTING_LOG.md`.
-5. Update affected items in `TODOS.md` (`Fixed` and `Tested`).
+5. Mark affected items as implemented (`[x]`) in `TODOS.md`; once thoroughly tested, remove those items from the active list.
 6. Add notes to `progress.md`.
 
 ## Localhost + Playwright Notes
@@ -125,6 +123,7 @@ Known constraints in this workspace:
 - Playwright MCP may return `ERR_CONNECTION_REFUSED` for `http://localhost:8000` even when the server is healthy.
 - Playwright MCP blocks `file://` URLs (`Allowed protocols: http:, https:, about:, data:`).
 - Sometimes MCP gets stuck with `Another browser context is being closed`.
+- For file-distributed builds, join URLs should point to sibling `join.html` (for example `file:///.../join.html?join=CODE`).
 
 Fallback when MCP cannot hit localhost:
 
@@ -152,12 +151,14 @@ These points are repeatedly emphasized by the user and should be treated as defa
 - Single-device and multi-device both require at least 2 total players.
 - Discussion must happen before voting (except solo simplifications).
 - Multi-device chat should be prominent and available as part of the discussion workflow.
+- Multi-device lobby should expose host/join using room code + generated URLs/hotlinks; do not expose raw websocket URLs to players.
+- Device defaults should be sequential (`Device 1`, `Device 2`, ...), and players should be shown grouped per device.
 - Narration is a major feature:
   - human narrator support without role-spoiling data
   - single-device narrator delivery is verbal
   - multi-device narrator delivery is chat-based
 - Geography/map graph and narration engine are major systems and should stay aligned with `scripts/geography_data.js` + `scripts/narration_data.js`.
-- `TODOS.md` is impact-first and status-driven (`Fixed` vs `Tested`; use `🔧` for fixed-not-tested).
+- `TODOS.md` is impact-first and status-driven (`[x]` means implemented; remove items after thorough testing).
 
 ## Commit Naming Guidance
 

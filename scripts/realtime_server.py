@@ -10,6 +10,7 @@ import argparse
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Set
 
@@ -86,6 +87,20 @@ def room_devices(room: Room) -> list[Dict[str, Any]]:
   return devices
 
 
+def next_device_name(room: Room) -> str:
+  used_numbers: set[int] = set()
+  for ws in room.clients:
+    info = CLIENT_INFO.get(ws) or {}
+    name = str(info.get("deviceName") or "")
+    match = re.match(r"^Device\s+(\d+)$", name.strip(), flags=re.IGNORECASE)
+    if match:
+      used_numbers.add(int(match.group(1)))
+  candidate = 1
+  while candidate in used_numbers:
+    candidate += 1
+  return f"Device {candidate}"
+
+
 async def publish_presence(room: Room) -> None:
   await broadcast(room, {
     "type": "presence",
@@ -98,11 +113,16 @@ async def publish_presence(room: Room) -> None:
 async def handle_join(ws: WebSocketServerProtocol, data: Dict[str, Any]) -> None:
   code = sanitize_code(data.get("code"))
   device_id = str(data.get("deviceId") or f"anon_{id(ws)}")
-  device_name = str(data.get("deviceName") or "Device")[:32]
+  requested_name = str(data.get("deviceName") or "").strip()
   requested_host = bool(data.get("isHost"))
 
   room = ROOMS.setdefault(code, Room(code=code))
   room.clients.add(ws)
+  default_like = re.match(r"^Device(\s+\d+)?$", requested_name, flags=re.IGNORECASE)
+  if not requested_name or default_like:
+    device_name = next_device_name(room)
+  else:
+    device_name = requested_name[:32]
   CLIENT_INFO[ws] = {
     "room": code,
     "deviceId": device_id,

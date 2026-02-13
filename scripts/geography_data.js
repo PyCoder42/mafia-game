@@ -91,8 +91,8 @@ window.GEOGRAPHY_DATA = {
       { id: 'surveillance_bay', name: 'Surveillance Bay', type: 'investigation', tags: ['snoop'] },
       { id: 'central_hub', name: 'Central Hub', type: 'shared', tags: ['traffic'] },
       { id: 'medbay', name: 'Medbay', type: 'utility', tags: ['medical'] },
-      { id: 'reactor_tunnel', name: 'Reactor Tunnel', type: 'isolated', tags: ['high_risk'] },
-      { id: 'cargo_hold', name: 'Cargo Hold', type: 'isolated', tags: ['high_risk'] },
+      { id: 'reactor_tunnel', name: 'Reactor Tunnel', type: 'isolated', exposure: 0.88, tags: ['high_risk', 'heat'] },
+      { id: 'cargo_hold', name: 'Cargo Hold', type: 'isolated', exposure: 0.7, tags: ['high_risk', 'logistics'] },
       { id: 'observation_ring', name: 'Observation Ring', type: 'shared', tags: ['social'] },
       { id: 'airlock', name: 'Airlock', type: 'transit', tags: ['utility'] }
     ],
