@@ -118,21 +118,23 @@ Higher risk should generally yield higher potential intel.
 ## Modes
 
 ### Solo (Human + Bots)
-- No pass-and-play privacy prompts.
-- Fast but readable flow.
-- Bot turns should not feel instantaneous; include pacing delay or staged narration.
+- One human player, all other seats are bots.
+- Use this for quick practice rounds and rule learning.
+- Discussion stays lightweight, then transitions to voting.
+- Bot turns should be paced so decisions remain readable.
 
-### Multiplayer Pass-And-Play (Single Device)
-- Private role/action prompts.
-- Explicit pass-to-player wording.
-- Discussion phase still required before vote.
+### Multiplayer Single-Device
+- All players use one device with private handoff between turns.
+- Use it when everyone is in the same room and sharing one screen.
+- Discussion still happens before voting so players can compare clues.
+- No room link or join flow is needed in this mode.
 
 ### Multiplayer Multi-Device
-- Uses join code/lobby and per-device player assignment.
-- Uses WebSocket realtime relay for cross-device state/chat sync (default URL: `ws://<host>:8765`).
-- Chat is a primary UI element during discussion.
-- Lobby should show connected-device presence only when more than one device is connected.
-- Real-time sync behavior should remain compatible with single-device flow.
+- Players connect through the multiplayer lobby using a shared room code and relay URL.
+- Use this when players are on separate devices.
+- During discussion, chat is the main coordination area before voting starts.
+- After discussion, each player continues into voting on their own device flow.
+- Connected-device presence should only be shown when more than one device is active.
 
 ## Presets And Role Scaling
 
@@ -146,10 +148,15 @@ Two supported narration styles:
 - Human narrator support mode:
   - can view broad game flow
   - cannot see secret-role data that would spoil the game
+  - gets a mood-setting turn at the beginning of each phase
+  - single-device narration is delivered verbally (one shared cue, not per-player custom text)
+  - multi-device narration is delivered through chat-style phase prompts
   - should include a recent phase-safe narration feed for moderation
 - Automated narrator mode:
   - configurable style presets
   - phase-by-phase atmospheric summaries and prompts
+
+Narrator prompts should be phase-level and non-personalized so role differences are not leaked.
 
 ## Atmosphere Toggles
 

@@ -85,3 +85,35 @@ Original prompt: Build and polish this multiplayer-capable mafia web game withou
 - Ran static separation audit:
   - verified HTML/template rendering lives in `scripts/render.js`
   - no UI markup/template strings found in `scripts/game.js`
+
+## 2026-02-13 - Lobby language + discussion flow + narrator visibility pass
+- Reworked multiplayer lobby language and behavior:
+  - player-facing mode labels now `Single-device` and `Multi-device`
+  - single-device mode no longer renders join/share room card
+  - multiplayer start validation now allows 2+ players (instead of hard 3+) while preserving mafia-vs-town safety checks
+  - share-link generation now handles protocol safely and falls back to room-code copy behavior
+- Restored/expanded lobby management UX:
+  - player list autoscroll restored when adding many names
+  - player reorder controls added (up/down in lobby)
+  - help `?` circle glyph styling removed from setup CTA
+- Updated discussion and chat flow:
+  - single-device discussion now uses a timed (~5s) group discussion gate before voting
+  - multi-device discussion no longer uses pass-to-chat prompts
+  - multi-device chat panel now renders as an always-visible corner panel during gameplay and becomes read-only outside discussion
+- Added vote tally output to vote announcement text.
+- Added narrator-facing visibility and prompts:
+  - narrator quick mode controls now visible in lobbies/game (not only deep settings)
+  - human narrator phase cue card rendered per phase (non-personalized, role-safe)
+  - multi-device human narrator now auto-injects one narrator chat cue per phase key (`day/phase`) without spoilers
+- Added device-awareness groundwork:
+  - players now track `deviceId`/`deviceName`
+  - active device banner shows whose device turn is currently up in multi-device play
+  - realtime `addPlayerFromInput` forwarding now carries requesting device id for proper ownership tagging
+- Documentation updates:
+  - `INSTRUCTIONS.md` modes + narration language updated to instruction-first framing and explicit human-narrator turn semantics
+  - `AGENTS.md` expanded with localhost startup checks, Playwright tunnel fallback notes, and current project non-negotiables
+  - `TODOS.md` updated with newly requested items + many changed items marked `🔧 Fixed` pending full browser validation
+- Testing status:
+  - JS syntax checks pass (`node --check scripts/game.js`, `node --check scripts/render.js`).
+  - Playwright MCP currently blocked by environment connectivity (`ERR_CONNECTION_REFUSED` to localhost and unstable browser-context closure states).
+  - Added Session 6 in `TESTING_LOG.md` documenting exact blocker and fallback attempts.

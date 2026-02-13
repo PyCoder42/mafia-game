@@ -127,6 +127,28 @@ This file tracks testing sessions. AI and humans add test results here.
 
 ---
 
+## Session 6: Localhost Access + Lobby/Flow Validation Attempt (2026-02-13)
+
+**Tester:** Codex
+**Method:** Playwright MCP + local tunnel fallback investigation
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Local server health (`python3 -m http.server 8000`) | PASS | `curl -I http://localhost:8000` returned `HTTP/1.0 200 OK`. |
+| Playwright MCP direct localhost navigation | FAIL | MCP browser returned `net::ERR_CONNECTION_REFUSED` for `http://localhost:8000` despite healthy local server. |
+| Playwright MCP local file fallback | FAIL | MCP browser blocks `file://` protocol (`Allowed protocols: http:, https:, about:, data:`). |
+| Playwright MCP tunnel navigation (`localtunnel`) | PARTIAL | Tunnel URL opened, but reminder/password gate and intermittent context close states prevented stable end-to-end regression run. |
+
+### Bugs Found
+- No new gameplay regressions were confirmed in this session because full browser pass was blocked by environment/tooling connectivity.
+
+### Notes
+- Added localhost/tunnel operational guidance and known Playwright MCP constraints to `AGENTS.md`.
+- This session should be followed by a fresh Playwright run once MCP can access localhost or a stable tunnel session is available.
+
+---
+
 ## Test Checklist
 
 Use this for browser testing sessions.

@@ -1,64 +1,80 @@
 # TODO List
 
-Prioritize high-impact gameplay blockers first.
-
 Status format per item:
 - `Fixed` checkbox = implemented in code
 - `Tested` checkbox = verified in browser/Playwright
 - `🔧` = fixed in code but not yet tested
 
+Priority legend:
+- `Priority-0` = highest urgency
+- `Priority-1` = core gameplay systems
+- `Priority-2` = UX/instructions/atmosphere polish (merged old turn-flow + narration/polish buckets)
+- `Priority-3` = deployment/infra/process support
+
 ---
 
-## P0 Critical Gameplay Gaps
+## Major Overhauls (Priority-0, Multi-Session)
 
-- [x] Fixed | [x] Tested - Night intel can be empty; always show a meaningful fallback in "Your intel".
-- [x] Fixed | [x] Tested - Mafia visibility model: show nearby people/actions first; only broaden view when no one is nearby.
-- [x] Fixed | [x] Tested - Snoop model should target a small set of rooms/people (roughly 3 contexts, 5 for detectives), not omniscient visibility.
-- [x] Fixed | [x] Tested - Detective stealth should reduce chance of being noticed by Mafia.
-- [x] Fixed | [x] Tested - Doctor saves should be probabilistic and reduced by multiple attackers.
-- [x] Fixed | [x] Tested - Pass-and-play prompts should never reveal role labels ("Pass to <name>" only).
-- [x] Fixed | [x] Tested - Ensure discussion phase exists before voting for all non-solo games.
-- [x] Fixed | [x] Tested - Validate and message role balance safety (including mafia pressure warning/blocking behavior before start).
+- [ ] Fixed | [ ] Tested - Geography graph + map system overhaul.
+  Build a full node/edge geography model for each setting, including weighted movement, line-of-sight, hearing ranges, and edge types (for example: porches overlooking beach, bedrooms adjacent to hallway, mild audio bleed into nearby lobby nodes). Add a dedicated file describing the model and a dedicated data file for all map connections so night visibility, witness logic, snooping, and narration all use the same spatial source of truth.
 
-## P1 Core Gameplay And Balance
+- [ ] Fixed | [ ] Tested - Narrative story engine overhaul.
+  Build preset backstory packs and phase narration templates that provide heavy intro story context, role-aware day/night lines, and a full morning narration sequence before discussion (including who died, who survived via medicine, and what happened). Keep narration dramatic but non-spoiler-safe for public phases.
 
-- [x] Fixed | [x] Tested - Better role scaling implemented, with validation against desired default balance curve.
-- [x] Fixed | [x] Tested - Default preset balancing target: 12 players should trend toward 5 Mafia, 3 Doctors, 2 Detectives, with safe fallback for smaller groups.
-- [x] Fixed | [x] Tested - Rework presets so Brutal/Chaos/Mystery are clearly distinct and intentional.
-- [x] Fixed | [x] Tested - Add clearer mafia-only planning options and labeling.
-- [x] Fixed | [x] Tested - Ensure snooping actions can target specific people/rooms.
-- [x] Fixed | [x] Tested - Expand location-specific actions by risk tier (not generic action pools).
-- [x] Fixed | [x] Tested - Lock vs listen mechanics restored; verify risk/intel effect in play.
-- [x] Fixed | [x] Tested - Risk/intel badges improved; verify percentages + color clarity end-to-end.
+---
 
-## P2 Turn Flow And UX
+## Priority-0 Mode Rules And Critical Flow Corrections
 
-- [x] Fixed | [x] Tested - Solo flow partially simplified; no unnecessary pass/reveal prompts in solo.
-- [x] Fixed | [x] Tested - Enter adds multiplayer names; no duplicate submit issues seen in regression run.
-- [x] Fixed | [x] Tested - Keep name input focused after Enter so bulk entry is fast.
-- [x] Fixed | [x] Tested - Slow bot transitions slightly so turns feel readable (without adding manual clicks).
-- [x] Fixed | [x] Tested - Mafia target cards show location + action details; verified during night targeting.
-- [x] Fixed | [x] Tested - Day planning privacy hides other players' planned actions.
-- [x] Fixed | [x] Tested - Discussion-to-vote flow prompts every player/device consistently in pass-and-play.
+- 🔧 [x] Fixed | [ ] Tested - Rename multiplayer modes to plain language (`Single-device` / `Multi-device`) and remove technical protocol labels from player-facing UI.
+- 🔧 [x] Fixed | [ ] Tested - Remove join code/link UI from single-device mode and prevent any `file://?join=` style link output.
+- 🔧 [x] Fixed | [ ] Tested - Single-device mode requires at least 2 total players.
+- 🔧 [x] Fixed | [ ] Tested - Multi-device mode requires at least 2 total players.
+- [ ] Fixed | [ ] Tested - Provide robust local + internet play strategy and human-readable host/join connection UX (no localhost-only dead-end).
+- [ ] Fixed | [ ] Tested - Preserve secrecy in pass-and-play prompts: never include role-revealing phrasing like "for mafia".
+- 🔧 [x] Fixed | [ ] Tested - Single-device discussion flow: global discussion timer prompt (~5s) before per-player voting pass flow.
+- 🔧 [x] Fixed | [ ] Tested - Multi-device discussion flow: shared chat-only discussion without pass-to-chat prompts.
+- 🔧 [x] Fixed | [ ] Tested - Chat panel always visible in-corner during play when more than one device is connected.
+- [ ] Fixed | [ ] Tested - Multi-device turn alerts and sequencing: show which device is active (`<Device Name> is up` when it is not your device), and support explicit device-order control alongside per-device player order.
+- 🔧 [x] Fixed | [ ] Tested - Show vote tallies (counts per target) in results.
 
-## P3 Multiplayer And Cross-Device
+---
 
-- [x] Fixed | [x] Tested - Multi-device lobby and device list (hide device list when only one device is present).
-- [x] Fixed | [x] Tested - Make chat prominent in multi-device discussion.
-- [x] Fixed | [x] Tested - Message attribution when one device has multiple players.
-- [x] Fixed | [x] Tested - WebSocket real-time support (currently pass-and-play oriented).
+## Priority-1 Core Gameplay And Night-System Redesign
 
-## P4 Narration, Atmosphere, And Polish
+- [ ] Fixed | [ ] Tested - Replace separate risk/intel stats with one combined `Exposure` value and gradient percentage styling (green -> yellow -> red).
+- [ ] Fixed | [ ] Tested - Expand each story map beyond 4 locations with role-aware location availability (town sleep zones, detective investigation zones, mafia movement zones).
+- [ ] Fixed | [ ] Tested - Convert snooping to location-first geography behavior (snooping is where you go, target/person choice is the action decision).
+- [ ] Fixed | [ ] Tested - Bedroom terminology/mechanics redesign: use shared bedroom geography (for example "their bedroom"), not singleton "your bedroom".
+- [ ] Fixed | [ ] Tested - Bedroom action redesign: sleep and lock, sleep without locking, and porch/nearby vantage behavior.
+- [ ] Fixed | [ ] Tested - Mafia location actions redesign: location-based kill options without over-the-top role reveal styling.
+- [ ] Fixed | [ ] Tested - Remove or redesign broken mafia collaboration actions (`coordinate strike` and similar) with a clear, working alternative.
+- [ ] Fixed | [ ] Tested - Nearby witness rule: if player is near a kill event, they reliably see meaningful evidence they can report.
+- [ ] Fixed | [ ] Tested - Villager night behavior redesign: no full intel packet at night; night output is awareness/proximity clues and morning intel delivery.
+- [ ] Fixed | [ ] Tested - Detective behavior redesign: always-alert copy/mechanics, stealth-lowered risk, and meaningful search choice set.
+- [ ] Fixed | [ ] Tested - Doctor night medicine loadout system: choose medicine type in advance, independent of location.
+- [ ] Fixed | [ ] Tested - Kill-method and treatment interaction system: mafia choose attack type, treatment efficacy depends on type, and morning reveals cause-of-death details.
+- [ ] Fixed | [ ] Tested - Intel text guarantees: lock-room outcomes still return text, and failed findings return explicit \"inconclusive\" phrasing.
+- [ ] Fixed | [ ] Tested - Mafia intel feed redesign: mafia get tactical movement/snooper-room knowledge instead of town-style intel packets.
 
-- [x] Fixed | [x] Tested - Robust narration system:
-  - human narrator mode with broad visibility but no secret-role spoilers
-  - automated narrator mode with tone presets
-- [x] Fixed | [x] Tested - Bot chat lines during discussion.
-- [x] Fixed | [x] Tested - Wire settings toggle to real sound effects in gameplay.
-- [x] Fixed | [x] Tested - Wire settings toggle to visible death animations.
-- [x] Fixed | [x] Tested - Favicon 404 suppression.
+---
 
-## P5 Project Hygiene
+## Priority-2 UX, Instructions, And Atmosphere (Merged Turn Flow + Atmosphere)
 
-- [x] Fixed | [x] Tested - Keep `scripts/game.js` and `scripts/render.js` separated by responsibility.
-- [x] Fixed | [x] Tested - Maintain occasional compressed backup snapshot in parent directory.
+- [ ] Fixed | [ ] Tested - Rework presets so they are clearly and meaningfully different in playstyle.
+- 🔧 [x] Fixed | [ ] Tested - Add player reordering in lobbies.
+- 🔧 [x] Fixed | [ ] Tested - Restore auto-scroll-to-bottom behavior when adding many multiplayer names.
+- 🔧 [x] Fixed | [ ] Tested - Remove the circular styling around the `?` help icon.
+- [ ] Fixed | [ ] Tested - Tone down mafia-exclusive visual treatment (no heavy red bias, still clear to mafia players).
+- 🔧 [x] Fixed | [ ] Tested - Rewrite instructions with instruction-first language (especially modes/discussion/voting usage flow, not feature-discovery wording).
+- [ ] Fixed | [ ] Tested - Update detective helper copy to "always alert, never doze off" semantics.
+- 🔧 [x] Fixed | [ ] Tested - Human narrator turn system: narrator gets one turn at the start of each phase with enough context to set mood without role-spoiling details; single-device narration is verbal guidance, multi-device narration uses chat-style prompts.
+- 🔧 [x] Fixed | [ ] Tested - Promote high-impact options (like narrator mode/turn behavior) out of deep settings and into more visible flow controls; keep settings for fine-tuning only.
+
+---
+
+## Priority-3 Deployment, Verification, And Process
+
+- [ ] Fixed | [ ] Tested - Align commit naming and commit timing with existing GitHub project history conventions.
+- [ ] Fixed | [ ] Tested - Document launch recipes for local host mode, local multi-device relay mode, and internet-hosted mode.
+- [ ] Fixed | [ ] Tested - Add repeatable verification checklist/scripts for single-device and multi-device regression.
+- [ ] Fixed | [ ] Tested - Re-verify architecture boundary after overhaul: game logic in `scripts/game.js`, rendering in `scripts/render.js`.

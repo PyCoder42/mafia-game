@@ -179,6 +179,15 @@ h2 {
 }
 .player-item:last-child { margin-bottom: 0; }
 .player-name { display: flex; align-items: center; gap: 8px; }
+.player-item-actions { display: flex; align-items: center; gap: 6px; }
+.player-device-chip {
+  font-size: 0.72rem;
+  color: #bfdbfe;
+  background: rgba(37, 99, 235, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
 
 .remove-btn {
   background: none;
@@ -190,6 +199,20 @@ h2 {
   border-radius: 4px;
 }
 .remove-btn:hover { background: rgba(248, 113, 113, 0.2); }
+
+.order-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: rgba(55, 55, 80, 0.8);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.order-btn:hover:not(:disabled) { background: rgba(70, 70, 100, 0.9); }
+.order-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Grids */
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -237,6 +260,17 @@ h2 {
 .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .header-actions { display: flex; gap: 8px; }
 
+.narrator-quick-controls {
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  background: rgba(120, 53, 15, 0.18);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.narrator-quick-label { font-weight: 700; color: #fde68a; margin-bottom: 8px; }
+.narrator-quick-actions { display: flex; gap: 8px; margin-bottom: 8px; }
+.narrator-quick-hint { font-size: 0.82rem; color: #fde68a; opacity: 0.9; }
+
 .copy-btn {
   padding: 8px 16px;
   background: rgba(55, 55, 80, 0.8);
@@ -249,21 +283,6 @@ h2 {
 }
 .copy-btn:hover { background: rgba(70, 70, 100, 0.8); }
 .copy-btn.copied { background: var(--green-accent); color: white; }
-
-.help-btn {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--purple-accent);
-  color: white;
-  border: none;
-  font-size: 0.75rem;
-  font-weight: bold;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
 
 /* Game Phase */
 .phase-header { text-align: center; margin-bottom: 20px; }
@@ -431,6 +450,32 @@ h2 {
 .setting-desc { font-size: 0.85rem; color: var(--text-secondary); }
 
 /* Narrator + Chat */
+.device-turn-banner {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.device-turn-local {
+  background: rgba(22, 163, 74, 0.2);
+  border-color: rgba(74, 222, 128, 0.55);
+  color: #bbf7d0;
+}
+.device-turn-remote {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: rgba(96, 165, 250, 0.55);
+  color: #bfdbfe;
+}
+
+.narrator-turn-card {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(120, 53, 15, 0.22);
+}
+.narrator-turn-title { color: #fde68a; font-weight: 700; margin-bottom: 6px; }
+.narrator-turn-text { color: #fef3c7; margin-bottom: 6px; line-height: 1.4; }
+.narrator-turn-note { font-size: 0.8rem; color: #fde68a; opacity: 0.9; }
+
 .narrator-panel { border-color: rgba(245, 158, 11, 0.5); background: rgba(120, 53, 15, 0.2); }
 .narrator-title { color: #fde68a; font-weight: 700; margin-bottom: 10px; }
 .narrator-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; font-size: 0.9rem; margin-bottom: 10px; }
@@ -462,6 +507,18 @@ h2 {
   margin-bottom: 16px;
 }
 .chat-panel-prominent { border-color: rgba(59, 130, 246, 0.6); box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2) inset; }
+.chat-panel-corner {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  width: min(350px, calc(100vw - 28px));
+  max-height: min(60vh, 430px);
+  overflow: hidden;
+  z-index: 20;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  margin-bottom: 0;
+}
 .chat-header { font-weight: 700; color: #bfdbfe; margin-bottom: 8px; }
 .chat-senders { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .chat-sender-btn {
@@ -487,6 +544,15 @@ h2 {
 }
 .chat-author { color: #fcd34d; font-weight: 700; }
 .chat-compose { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+
+@media (max-width: 640px) {
+  .chat-panel-corner {
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+    max-height: 48vh;
+  }
+}
 
 .hidden { display: none !important; }
 

@@ -406,6 +406,8 @@ const state = {
   chatMessages: [],
   chatDraft: '',
   chatSenderId: null,
+  discussionUnlockAt: 0,
+  lastNarratorPromptKey: null,
   narrationLog: [],
   lastBotChatDay: null,
   botChatTimerIds: [],
@@ -503,6 +505,53 @@ function addNarrationLog(text, phase = state.gamePhase) {
   }
 }
 
+function getNarratorPhasePrompt(phase = state.gamePhase) {
+  const prompts = {
+    reveal: 'Narrator turn: set the tone and remind players that role reveals stay private.',
+    day: 'Narrator turn: invite bold day planning and remind everyone that riskier choices can reveal stronger clues.',
+    night: 'Narrator turn: describe a tense night atmosphere without naming any role secrets.',
+    morning_doctor: 'Narrator turn: frame the aftermath and remind everyone that survival can hinge on medicine and luck.',
+    announcement: 'Narrator turn: read the public outcome clearly before reactions begin.',
+    discussion: 'Narrator turn: open debate and ask players to compare timelines before voting.',
+    vote: 'Narrator turn: call for calm voting and careful use of intel.',
+    vote_announcement: 'Narrator turn: announce verdict aftermath and set up the next cycle.',
+    gameover: 'Narrator turn: close the story and summarize how the game ended.'
+  };
+  return prompts[phase] || 'Narrator turn: set the mood for this phase.';
+}
+
+function queueNarratorChatPrompt(phase = state.gamePhase) {
+  if (state.settings.narratorMode !== 'human') return;
+  if (!(isRealtimeMode() && (state.network.devices || []).length > 1)) return;
+  const key = `${state.dayNumber}:${phase}`;
+  if (state.lastNarratorPromptKey === key) return;
+  state.lastNarratorPromptKey = key;
+
+  state.chatMessages.push({
+    id: `msg_narrator_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    day: state.dayNumber,
+    senderId: 'narrator',
+    senderName: 'Narrator',
+    text: getNarratorPhasePrompt(phase),
+    at: new Date().toISOString()
+  });
+}
+
+function getDeviceNameById(deviceId) {
+  if (!deviceId) return state.network.deviceName || 'Host device';
+  const found = (state.network.devices || []).find(device => device.deviceId === deviceId);
+  if (found?.deviceName) return found.deviceName;
+  if (deviceId === state.network.deviceId) return state.network.deviceName || 'This device';
+  return 'Device';
+}
+
+function refreshPlayerDeviceNames() {
+  state.players = state.players.map(player => ({
+    ...player,
+    deviceName: getDeviceNameById(player.deviceId)
+  }));
+}
+
 function clearBotChatTimers() {
   state.botChatTimerIds.forEach(timerId => clearTimeout(timerId));
   state.botChatTimerIds = [];
@@ -529,6 +578,15 @@ function sanitizeRoomCode(code) {
   const cleaned = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!cleaned) return state.gameCode;
   return cleaned.slice(0, 8);
+}
+
+function getShareJoinUrl(code = state.gameCode) {
+  const protocol = window.location.protocol;
+  if (protocol !== 'http:' && protocol !== 'https:') return '';
+  const roomCode = sanitizeRoomCode(code);
+  if (!roomCode) return '';
+  const path = window.location.pathname || '/';
+  return `${window.location.origin}${path}?join=${roomCode}`;
 }
 
 function isRealtimeMode() {
@@ -585,6 +643,7 @@ function updateRealtimePresence(devices, hostDeviceId = null) {
   state.network.devices = Array.isArray(devices) ? devices : [];
   state.network.hostDeviceId = hostDeviceId || null;
   if (hostDeviceId) state.network.isHost = hostDeviceId === state.network.deviceId;
+  refreshPlayerDeviceNames();
 }
 
 function broadcastRealtimeState(force = false) {
@@ -1106,9 +1165,10 @@ function canStart() {
   const humans = state.players.filter(p => !p.isBot);
   const mafia = state.roleConfig.mafia || 0;
   const town = allPlayers.length - mafia;
+  const minPlayers = state.screen === 'multi_lobby' ? 2 : 3;
   if (isRealtimeMode() && !state.network.connected) return false;
   if (isRealtimeMode() && !state.network.isHost) return false;
-  if (allPlayers.length < 3) return false;
+  if (allPlayers.length < minPlayers) return false;
   if (state.screen === 'multi_lobby' && humans.length === 0) return false;
   if (state.roleConfig.villager < 0) return false;
   if (mafia >= town) return false;
@@ -1120,9 +1180,10 @@ function getStartBlockReason() {
   const humans = state.players.filter(p => !p.isBot);
   const mafia = state.roleConfig.mafia || 0;
   const town = allPlayers.length - mafia;
-  if (isRealtimeMode() && !state.network.connected) return 'Connect realtime first';
+  const minPlayers = state.screen === 'multi_lobby' ? 2 : 3;
+  if (isRealtimeMode() && !state.network.connected) return 'Connect multi-device first';
   if (isRealtimeMode() && !state.network.isHost) return 'Waiting for host to start';
-  if (allPlayers.length < 3) return `Need 3+ players (${allPlayers.length})`;
+  if (allPlayers.length < minPlayers) return `Need ${minPlayers}+ players (${allPlayers.length})`;
   if (state.screen === 'solo_lobby' && !state.soloPlayerName.trim()) return 'Enter your name';
   if (state.screen === 'multi_lobby' && humans.length === 0) return 'Need at least 1 human';
   if (state.roleConfig.villager < 0) return 'Too many special roles!';
@@ -1167,7 +1228,7 @@ function removeBot(id) {
   render();
 }
 
-function addPlayer(name) {
+function addPlayer(name, deviceId = null) {
   const error = validateName(name);
   if (error) {
     state.nameError = error;
@@ -1178,17 +1239,34 @@ function addPlayer(name) {
     id: 'p' + Date.now(),
     name: name.trim(),
     isBot: false,
-    alive: true
+    alive: true,
+    deviceId: deviceId || state.network.deviceId,
+    deviceName: getDeviceNameById(deviceId || state.network.deviceId)
   });
   state.nameError = '';
   updateRoleConfig();
   render();
+  setTimeout(() => {
+    const list = document.querySelector('.player-list');
+    if (list) list.scrollTop = list.scrollHeight;
+  }, 50);
   return true;
 }
 
 function removePlayer(id) {
   state.players = state.players.filter(p => p.id !== id);
   updateRoleConfig();
+  render();
+}
+
+function movePlayer(id, direction) {
+  const index = state.players.findIndex(player => player.id === id);
+  if (index === -1) return;
+  const targetIndex = index + Number(direction || 0);
+  if (targetIndex < 0 || targetIndex >= state.players.length) return;
+  const reordered = [...state.players];
+  [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+  state.players = reordered;
   render();
 }
 
@@ -1243,6 +1321,7 @@ function beginNightPhase() {
   state.selectedSave = null;
   state.narrative = buildNarration('night');
   addNarrationLog(state.narrative, 'night');
+  queueNarratorChatPrompt('night');
   clearBotChatTimers();
   prepareNightContext();
 
@@ -1303,6 +1382,8 @@ function startGame() {
   state.chatMessages = [];
   state.chatDraft = '';
   state.chatSenderId = null;
+  state.discussionUnlockAt = 0;
+  state.lastNarratorPromptKey = null;
   state.narrationLog = [];
   state.lastBotChatDay = null;
   clearBotChatTimers();
@@ -1312,6 +1393,7 @@ function startGame() {
   state.finalDeath = null;
   clearAutoAdvance();
   addNarrationLog(state.narrative, 'reveal');
+  queueNarratorChatPrompt('reveal');
 
   const allPlayers2 = getAllPlayers();
   let firstHuman = allPlayers2.findIndex(p => !p.isBot);
@@ -1488,6 +1570,7 @@ function processNight() {
   state.narrative = buildNarration('morning', { attackHappened: Boolean(targetId) });
   addNarrationLog(state.narrative, 'morning_doctor');
   state.gamePhase = 'morning_doctor';
+  queueNarratorChatPrompt('morning_doctor');
   state.showRole = false;
   state.selectedSave = null;
 
@@ -1555,6 +1638,7 @@ function processMorning() {
   if (!checkWin()) {
     state.announcement = deathMessage;
     state.gamePhase = 'announcement';
+    queueNarratorChatPrompt('announcement');
     render();
   }
 }
@@ -1568,7 +1652,9 @@ function afterAnnouncement() {
   state.showRole = false;
   state.chatDraft = '';
   state.chatSenderId = getAllPlayers()[state.currentPlayerIndex]?.id || null;
+  state.discussionUnlockAt = isSoloMode() ? 0 : Date.now() + 5000;
   addNarrationLog('Discussion opens. Compare intel before voting.', 'discussion');
+  queueNarratorChatPrompt('discussion');
   queueBotDiscussion(true);
 
   render();
@@ -1587,6 +1673,13 @@ function processVote() {
   });
 
   const sorted = Object.entries(voteCounts).sort((x, y) => y[1] - x[1]);
+  const tallyLines = sorted
+    .map(([targetId, count]) => {
+      const player = allPlayers.find(candidate => candidate.id === targetId);
+      if (!player) return null;
+      return `${player.name}: ${count}`;
+    })
+    .filter(Boolean);
   let voteMessage = '';
 
   if (sorted.length > 0 && (sorted.length === 1 || sorted[0][1] > (sorted[1]?.[1] || 0))) {
@@ -1610,6 +1703,9 @@ function processVote() {
     voteMessage = 'Vote tied. No one eliminated.';
     state.finalDeath = { type: 'vote', victim: null, role: null, saved: false };
     clearDeathAnimation();
+  }
+  if (tallyLines.length > 0) {
+    voteMessage += `\n\nVote tally:\n${tallyLines.join('\n')}`;
   }
   addNarrationLog(voteMessage, 'vote_announcement');
 
@@ -1642,6 +1738,8 @@ function afterVoteAnnouncement() {
   state.selectedTarget = null;
   state.chatSenderId = null;
   state.chatDraft = '';
+  state.discussionUnlockAt = 0;
+  queueNarratorChatPrompt('day');
   state.narrative = buildNarration('vote');
 
   const firstHuman = findFirstAliveHumanIndex();
@@ -1718,6 +1816,8 @@ window.goToSetup = () => {
   state.chatMessages = [];
   state.chatDraft = '';
   state.chatSenderId = null;
+  state.discussionUnlockAt = 0;
+  state.lastNarratorPromptKey = null;
   state.narrationLog = [];
   state.lastBotChatDay = null;
   render();
@@ -1783,6 +1883,8 @@ window.toggleSetting = (key) => {
 
 window.setNarratorMode = (mode) => {
   state.settings.narratorMode = mode === 'human' ? 'human' : 'auto';
+  state.lastNarratorPromptKey = null;
+  queueNarratorChatPrompt(state.gamePhase);
   render();
 };
 
@@ -1820,6 +1922,29 @@ window.setRealtimeUrl = (value) => {
   state.network.wsUrl = String(value || '').trim() || DEFAULT_REALTIME_URL;
 };
 
+window.setRoomCode = (value) => {
+  const code = sanitizeRoomCode(value);
+  if (!code) return;
+  state.gameCode = code;
+  state.joinCode = code;
+};
+
+window.hostThisRoom = () => {
+  state.network.isHost = true;
+  state.joinCode = state.gameCode;
+  if (state.network.connected) disconnectRealtimeSession({ keepMode: true });
+  connectRealtimeSession();
+  render();
+};
+
+window.joinThisRoom = () => {
+  state.network.isHost = false;
+  state.joinCode = state.gameCode;
+  if (state.network.connected) disconnectRealtimeSession({ keepMode: true });
+  connectRealtimeSession();
+  render();
+};
+
 window.connectRealtime = () => {
   if (!isRealtimeMode()) state.multiplayerMode = 'realtime';
   if (state.joinCode) state.network.isHost = false;
@@ -1835,18 +1960,19 @@ window.disconnectRealtime = () => {
 window.addBot = addBot;
 window.removeBot = removeBot;
 window.removePlayer = removePlayer;
+window.movePlayer = movePlayer;
 window.scheduleAutoAdvance = scheduleAutoAdvance;
 window.clearAutoAdvance = clearAutoAdvance;
 window.getVisibleTargetsForMafia = getVisibleTargetsForMafia;
 
-window.addPlayerFromInput = (nameOverride = null) => {
+window.addPlayerFromInput = (nameOverride = null, deviceIdOverride = null) => {
   const input = document.getElementById('newPlayerInput');
   const candidateName = typeof nameOverride === 'string'
     ? nameOverride
     : (input?.value || '');
   if (!candidateName.trim()) return;
 
-  if (addPlayer(candidateName) && input) {
+  if (addPlayer(candidateName, deviceIdOverride || state.network.deviceId) && input) {
     input.value = '';
   }
   setTimeout(() => {
@@ -1869,10 +1995,13 @@ window.selectStory = (id) => {
 window.adjustRole = adjustRole;
 
 window.copyLink = () => {
-  navigator.clipboard?.writeText(`${window.location.origin}?join=${state.gameCode}`);
+  const shareUrl = getShareJoinUrl(state.gameCode);
+  const fallbackCode = sanitizeRoomCode(state.gameCode);
+  const textToCopy = shareUrl || fallbackCode;
+  navigator.clipboard?.writeText(textToCopy);
   const btn = document.getElementById('copyBtn');
   if (btn) {
-    btn.textContent = '✓ Copied!';
+    btn.textContent = shareUrl ? '✓ Link Copied!' : '✓ Code Copied!';
     btn.classList.add('copied');
     setTimeout(() => {
       btn.textContent = '📋 Copy';
@@ -1907,6 +2036,8 @@ window.newGame = () => {
   state.chatMessages = [];
   state.chatDraft = '';
   state.chatSenderId = null;
+  state.discussionUnlockAt = 0;
+  state.lastNarratorPromptKey = null;
   state.narrationLog = [];
   state.lastBotChatDay = null;
   render();
@@ -1928,6 +2059,7 @@ window.nextReveal = () => {
     state.showRole = false;
     const firstHuman = findFirstAliveHumanIndex();
     if (firstHuman !== -1) state.currentPlayerIndex = firstHuman;
+    queueNarratorChatPrompt('day');
     withBotDelay(() => botMakeDecisions('day'), Math.max(700, state.botDelayMs));
   }
   render();
@@ -2073,30 +2205,28 @@ window.openDiscussionForCurrent = () => {
 };
 
 window.advanceDiscussion = () => {
-  const nextHuman = getNextAliveHumanIndex(state.currentPlayerIndex);
-  if (nextHuman !== -1 && !isSoloDiscussionComplete()) {
-    state.currentPlayerIndex = nextHuman;
-    state.showRole = false;
-    state.chatSenderId = getAllPlayers()[nextHuman]?.id || null;
-    state.chatDraft = '';
+  const remainingMs = Math.max(0, (state.discussionUnlockAt || 0) - Date.now());
+  const isMultiDevice = state.multiplayerMode === 'realtime' && (state.network.devices || []).length > 1;
+  if (remainingMs > 0) {
+    render();
+    return;
+  }
+  if (isMultiDevice && !state.network.isHost) {
     render();
     return;
   }
   window.proceedToVote();
 };
 
-function isSoloDiscussionComplete() {
-  const aliveHumans = getAliveHumans();
-  return aliveHumans.length <= 1 && state.players.length <= 1;
-}
-
 window.proceedToVote = () => {
   clearBotChatTimers();
+  state.discussionUnlockAt = 0;
   state.gamePhase = 'vote';
   state.currentPlayerIndex = 0;
   state.showRole = false;
   state.narrative = buildNarration('vote');
   addNarrationLog(state.narrative, 'vote');
+  queueNarratorChatPrompt('vote');
   state.chatSenderId = null;
   state.chatDraft = '';
   const firstHuman = findFirstAliveHumanIndex();
@@ -2115,6 +2245,7 @@ window.setChatSender = (playerId) => {
 };
 
 window.sendDiscussionMessage = (textOverride = null) => {
+  if (state.gamePhase !== 'discussion') return;
   const source = typeof textOverride === 'string' ? textOverride : state.chatDraft;
   const text = source.trim();
   if (!text) return;
@@ -2135,6 +2266,11 @@ window.sendDiscussionMessage = (textOverride = null) => {
   });
   state.chatDraft = '';
   queueBotDiscussion(false, text);
+  render();
+};
+
+window.refreshDiscussion = () => {
+  if (state.gamePhase !== 'discussion') return;
   render();
 };
 
@@ -2186,6 +2322,7 @@ const REALTIME_FORWARD_ACTIONS = new Set([
   'goToSetup',
   'goToMultiLobby',
   'removePlayer',
+  'movePlayer',
   'addPlayerFromInput',
   'addBot',
   'removeBot',
@@ -2220,9 +2357,11 @@ const REALTIME_FORWARD_ACTIONS = new Set([
 
 const REALTIME_ARG_MAPPERS = {
   addPlayerFromInput: (args) => {
-    if (typeof args[0] === 'string') return args;
+    if (typeof args[0] === 'string') {
+      return [args[0], args[1] || state.network.deviceId];
+    }
     const input = document.getElementById('newPlayerInput');
-    return [input?.value || ''];
+    return [input?.value || '', state.network.deviceId];
   },
   sendDiscussionMessage: (args) => {
     if (typeof args[0] === 'string') return args;

@@ -90,6 +90,64 @@ For any meaningful gameplay/UI change:
 4. Update affected items in `TODOS.md` (`Fixed` and `Tested`).
 5. Add notes to `progress.md`.
 
+## Localhost + Playwright Notes
+
+Use this exact sequence first:
+
+```bash
+cd /Users/saahir/Desktop/Coding/mafia-game
+nohup python3 -m http.server 8000 >/tmp/mafia_http.log 2>&1 &
+lsof -iTCP:8000 -sTCP:LISTEN -n -P
+curl -I http://localhost:8000
+```
+
+Expected health check: `HTTP/1.0 200 OK`.
+
+Known constraints in this workspace:
+- Playwright MCP may return `ERR_CONNECTION_REFUSED` for `http://localhost:8000` even when the server is healthy.
+- Playwright MCP blocks `file://` URLs (`Allowed protocols: http:, https:, about:, data:`).
+- Sometimes MCP gets stuck with `Another browser context is being closed`.
+
+Fallback when MCP cannot hit localhost:
+
+```bash
+cd /Users/saahir/Desktop/Coding/mafia-game
+npx --yes localtunnel --port 8000
+# capture printed URL, e.g. https://<name>.loca.lt
+curl -s https://loca.lt/mytunnelpassword
+```
+
+Then in Playwright MCP:
+- Navigate to the `https://*.loca.lt` URL.
+- Enter tunnel password from `https://loca.lt/mytunnelpassword`.
+
+Important:
+- If MCP gets stuck after tunnel/password flow, close/reopen the Playwright browser context and retry.
+- Keep localhost server running; tunnel only proxies that same server.
+
+## Current Product Intent (Do Not Drift)
+
+These points are repeatedly emphasized by the user and should be treated as default requirements:
+- Keep architecture as-is (`scripts/game.js` logic, `scripts/render.js` rendering).
+- Multiplayer labels must be plain-language (`Single-device`, `Multi-device`) for non-technical users.
+- Single-device mode should not show join links/codes.
+- Single-device and multi-device both require at least 2 total players.
+- Discussion must happen before voting (except solo simplifications).
+- Multi-device chat should be prominent and available as part of the discussion workflow.
+- Narration is a major feature:
+  - human narrator support without role-spoiling data
+  - single-device narrator delivery is verbal
+  - multi-device narrator delivery is chat-based
+- Geography/map graph overhaul and narration engine are major multi-session overhauls (tracked in `TODOS.md`).
+- `TODOS.md` is impact-first and status-driven (`Fixed` vs `Tested`; use `🔧` for fixed-not-tested).
+
+## Commit Naming Guidance
+
+Match existing repository style from project history:
+- prefer concise imperative titles like `Fix ...`, `Add ...`, `Update ...`, `Refine ...`
+- avoid scoped/conventional prefix style (for example `feat:`) unless user explicitly asks
+- commit at meaningful milestones, not for every tiny edit
+
 ## Commit Policy
 
 Commit when there is a meaningful milestone, especially after:

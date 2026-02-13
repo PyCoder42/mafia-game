@@ -34,6 +34,67 @@ function getAliveDiscussionHumans() {
   return getAlivePlayers().filter(player => !player.isBot);
 }
 
+function isMultiDeviceChatEnabled() {
+  return state.multiplayerMode === 'realtime' && (state.network.devices || []).length > 1;
+}
+
+function renderMultiDeviceChatPanel({ prominent = false, corner = false } = {}) {
+  const aliveHumans = getAliveDiscussionHumans();
+  const dayMessages = state.chatMessages.filter(message => message.day === state.dayNumber);
+  const chatOpen = state.gamePhase === 'discussion';
+  const panelClasses = ['chat-panel'];
+  if (prominent) panelClasses.push('chat-panel-prominent');
+  if (corner) panelClasses.push('chat-panel-corner');
+
+  return `
+    <div class="${panelClasses.join(' ')}">
+      <div class="chat-header">🗨️ Multi-device Chat</div>
+      ${aliveHumans.length > 1 ? `
+        <div class="chat-senders">
+          ${aliveHumans.map(player => `
+            <button class="chat-sender-btn ${state.chatSenderId === player.id ? 'active' : ''}" onclick="setChatSender('${player.id}')">
+              ${player.name}
+            </button>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div class="chat-messages">
+        ${dayMessages.length === 0 ? '<div style="color:var(--text-secondary);font-size:0.9rem">No messages yet this round.</div>' : dayMessages.map(message => `
+          <div class="chat-message ${message.senderId?.startsWith('bot') ? 'chat-message-bot' : ''}">
+            <span class="chat-author">${message.senderName}:</span> ${message.text}
+          </div>
+        `).join('')}
+      </div>
+      <div class="chat-compose">
+        <input class="input" type="text" value="${state.chatDraft.replace(/"/g, '&quot;')}"
+               oninput="setChatDraft(this.value)"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();sendDiscussionMessage();}"
+               placeholder="${chatOpen ? 'Type message and press Enter' : 'Chat opens during discussion'}"
+               ${chatOpen ? '' : 'disabled'}/>
+        <button class="btn btn-secondary btn-small" onclick="sendDiscussionMessage()" ${chatOpen ? '' : 'disabled'}>Send</button>
+      </div>
+      ${chatOpen ? '' : '<div style="color:var(--text-secondary);font-size:0.8rem;margin-top:8px">Chat is read-only outside discussion.</div>'}
+    </div>
+  `;
+}
+
+function renderNarratorQuickControls() {
+  const modeHint = state.settings.narratorMode === 'human'
+    ? (isMultiDeviceChatEnabled() ? 'Human narrator active: phase cues should be posted in chat first.' : 'Human narrator active: read phase cues aloud before play.')
+    : 'Auto narrator active.';
+
+  return `
+    <div class="narrator-quick-controls">
+      <div class="narrator-quick-label">Narrator</div>
+      <div class="narrator-quick-actions">
+        <button class="btn btn-small ${state.settings.narratorMode === 'auto' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('auto')">Auto</button>
+        <button class="btn btn-small ${state.settings.narratorMode === 'human' ? 'btn-primary' : 'btn-secondary'}" onclick="setNarratorMode('human')">Human</button>
+      </div>
+      <div class="narrator-quick-hint">${modeHint}</div>
+    </div>
+  `;
+}
+
 // -----------------------------------------------------------------------------
 // MAIN RENDER
 // -----------------------------------------------------------------------------
@@ -58,7 +119,7 @@ function renderSetup() {
       <h1>MAFIA</h1>
       <p class="subtitle">A game of deception and survival</p>
       <button class="btn btn-secondary btn-full" style="margin-bottom:24px" onclick="showInstructions()">
-        <span class="help-btn">?</span> How to Play
+        How to Play
       </button>
       <div class="card">
         <button class="mode-btn" onclick="goToSoloLobby()">
@@ -72,9 +133,9 @@ function renderSetup() {
       </div>
       ${state.joinCode ? `
         <div class="card" style="border-color:rgba(59,130,246,0.5)">
-          <div class="section-label" style="color:#93c5fd">🔗 Join Code Detected</div>
+          <div class="section-label" style="color:#93c5fd">🔗 Room Code Detected</div>
           <p style="color:var(--text-secondary);margin-bottom:10px">Code: <strong>${state.joinCode}</strong></p>
-          <button class="btn btn-primary btn-full" onclick="goToMultiLobby()">Open Realtime Lobby</button>
+          <button class="btn btn-primary btn-full" onclick="goToMultiLobby()">Open Multi-device Lobby</button>
         </div>
       ` : ''}
     </div>
@@ -102,6 +163,7 @@ function renderSoloLobby() {
         </div>
       </div>
       <h2 style="color:var(--red-accent)">Solo Game</h2>
+      ${renderNarratorQuickControls()}
 
       <div class="card">
         <div class="section-label">Your Name</div>
@@ -165,6 +227,7 @@ function renderMultiLobby() {
     : state.network.status === 'error'
       ? '#f87171'
       : '#fbbf24';
+  const shareJoinUrl = isRealtime ? getShareJoinUrl(state.gameCode) : '';
 
   return `
     <div class="container wide">
@@ -176,12 +239,13 @@ function renderMultiLobby() {
         </div>
       </div>
       <h2 style="color:var(--red-accent)">Multiplayer Lobby</h2>
+      ${renderNarratorQuickControls()}
 
       <div class="card">
-        <div class="section-label">🛰️ Multiplayer Mode</div>
+        <div class="section-label">🛰️ Device Mode</div>
         <div class="mode-switch-row">
-          <button class="btn btn-small ${!isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('passplay')">Pass-and-Play</button>
-          <button class="btn btn-small ${isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('realtime')">Realtime (WebSocket)</button>
+          <button class="btn btn-small ${!isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('passplay')">Single-device</button>
+          <button class="btn btn-small ${isRealtime ? 'btn-primary' : 'btn-secondary'}" onclick="setMultiplayerMode('realtime')">Multi-device</button>
         </div>
         ${isRealtime ? `
           <div class="realtime-meta">
@@ -190,7 +254,7 @@ function renderMultiLobby() {
               <input type="text" class="input" value="${state.network.deviceName.replace(/"/g, '&quot;')}" oninput="setRealtimeDeviceName(this.value)" maxlength="32"/>
             </div>
             <div class="realtime-row">
-              <label>Realtime URL</label>
+              <label>Relay URL</label>
               <input type="text" class="input" value="${state.network.wsUrl.replace(/"/g, '&quot;')}" oninput="setRealtimeUrl(this.value)"/>
             </div>
             <div class="realtime-row">
@@ -203,17 +267,34 @@ function renderMultiLobby() {
             </div>
           </div>
         ` : `
-          <div style="color:var(--text-secondary);font-size:0.9rem">Classic single-device pass flow. Realtime mode enables multi-device sync.</div>
+          <div style="color:var(--text-secondary);font-size:0.9rem">
+            Single-device uses pass-and-play on one screen. No room codes or join links are needed.
+          </div>
         `}
       </div>
 
-      <div class="card">
-        <div style="color:var(--text-secondary);margin-bottom:8px">${isRealtime ? 'Share to join this realtime room' : 'Share to add devices'}</div>
-        <div class="input-row">
-          <input type="text" class="input" readonly value="${window.location.origin}?join=${state.gameCode}"/>
-          <button class="copy-btn" id="copyBtn" onclick="copyLink()">📋 Copy</button>
+      ${isRealtime ? `
+        <div class="card">
+          <div class="section-label">🔗 Multi-device Room</div>
+          <div class="realtime-row" style="margin-bottom:10px">
+            <label>Room code</label>
+            <input type="text" class="input" value="${state.gameCode}" oninput="setRoomCode(this.value)" maxlength="8" spellcheck="false"/>
+          </div>
+          <div class="mode-switch-row" style="margin-bottom:10px">
+            <button class="btn btn-small btn-primary" onclick="hostThisRoom()">Host This Room</button>
+            <button class="btn btn-small btn-secondary" onclick="joinThisRoom()">Join This Room</button>
+          </div>
+          <div style="color:var(--text-secondary);margin-bottom:8px">
+            ${shareJoinUrl
+              ? 'Share this join link with other devices running the game.'
+              : 'Running from a local file: share the same app, relay URL, and room code instead of a join link.'}
+          </div>
+          <div class="input-row">
+            <input type="text" class="input" readonly value="${shareJoinUrl || state.gameCode}"/>
+            <button class="copy-btn" id="copyBtn" onclick="copyLink()">📋 Copy</button>
+          </div>
         </div>
-      </div>
+      ` : ''}
 
       ${showDeviceList ? `
         <div class="card">
@@ -234,10 +315,17 @@ function renderMultiLobby() {
       <div class="card">
         <div class="section-label">👥 Players (${state.players.length})</div>
         <div class="player-list">
-          ${state.players.map(p => `
+          ${state.players.map((p, index) => `
             <div class="player-item">
-              <span class="player-name">👤 ${p.name} ✏️</span>
-              <button class="remove-btn" onclick="removePlayer('${p.id}')">×</button>
+              <span class="player-name">
+                👤 ${p.name} ✏️
+                ${isRealtime ? `<span class="player-device-chip">${p.deviceName || (p.deviceId === state.network.deviceId ? 'This device' : 'Device')}</span>` : ''}
+              </span>
+              <div class="player-item-actions">
+                <button class="order-btn" onclick="movePlayer('${p.id}', -1)" ${index === 0 ? 'disabled' : ''} title="Move up">↑</button>
+                <button class="order-btn" onclick="movePlayer('${p.id}', 1)" ${index === state.players.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+                <button class="remove-btn" onclick="removePlayer('${p.id}')" title="Remove player">×</button>
+              </div>
             </div>
           `).join('')}
           ${state.players.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:12px">No players yet</div>' : ''}
@@ -338,6 +426,14 @@ function renderGame() {
   const allPlayers = getAllPlayers();
   const alivePlayers = getAlivePlayers();
   const current = getCurrentPlayer();
+  const showCornerChat = isMultiDeviceChatEnabled() && state.gamePhase !== 'gameover';
+  const narratorCue = state.settings.narratorMode === 'human' ? getNarratorPhasePrompt(state.gamePhase) : '';
+  const currentDeviceId = current?.deviceId || state.network.deviceId;
+  const currentDeviceName = current?.deviceName || state.network.deviceName || 'Host device';
+  const showDeviceTurnBanner = isMultiDeviceChatEnabled()
+    && current
+    && !['announcement', 'vote_announcement', 'gameover'].includes(state.gamePhase);
+  const myDeviceTurn = currentDeviceId === state.network.deviceId;
 
   const phaseColors = {
     reveal: '#a855f7',
@@ -441,6 +537,24 @@ function renderGame() {
           : ''}
       </div>
 
+      ${renderNarratorQuickControls()}
+
+      ${showDeviceTurnBanner ? `
+        <div class="device-turn-banner ${myDeviceTurn ? 'device-turn-local' : 'device-turn-remote'}">
+          ${myDeviceTurn ? `Your device (${currentDeviceName}) is going now.` : `${currentDeviceName} is going now.`}
+        </div>
+      ` : ''}
+
+      ${narratorCue && !['announcement', 'vote_announcement', 'gameover'].includes(state.gamePhase) ? `
+        <div class="card narrator-turn-card">
+          <div class="narrator-turn-title">🎙️ Narrator Cue</div>
+          <div class="narrator-turn-text">${narratorCue}</div>
+          <div class="narrator-turn-note">
+            ${isMultiDeviceChatEnabled() ? 'Post the cue in multi-device chat before players act.' : 'Deliver this cue verbally before players act.'}
+          </div>
+        </div>
+      ` : ''}
+
       <div class="role-counter">
         ${Object.keys(ROLES).map(r => {
           const alive = alivePlayers.filter(p => p.role === r).length;
@@ -483,6 +597,7 @@ function renderGame() {
 
       ${content}
     </div>
+    ${showCornerChat ? renderMultiDeviceChatPanel({ prominent: true, corner: true }) : ''}
   `;
 }
 
@@ -866,92 +981,52 @@ function renderDoctorPhase(alivePlayers) {
 }
 
 function renderDiscussionPhase(current) {
-  if (!current) {
-    return `
-      <div class="card" style="text-align:center">
-        <div style="font-size:1.5rem;margin-bottom:16px">💬 Discussion Time</div>
-        <button class="btn btn-warning btn-lg" onclick="proceedToVote()">Proceed to Vote</button>
-      </div>
-    `;
-  }
-
-  const aliveHumans = getAliveDiscussionHumans();
-  const nextHuman = getNextAliveHumanIndex(state.currentPlayerIndex);
-
-  if (!state.showRole && !isSoloMode()) {
+  const isMultiDevice = isMultiDeviceChatEnabled();
+  const remainingMs = Math.max(0, (state.discussionUnlockAt || 0) - Date.now());
+  const timerLocked = !isSoloMode() && remainingMs > 0;
+  if (timerLocked) {
+    const waitMs = Math.min(600, remainingMs + 20);
+    scheduleAutoAdvance(`discussion_tick_${Math.ceil(remainingMs / 400)}`, 'refreshDiscussion', waitMs);
+  } else {
     clearAutoAdvance();
-    return `
-      <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${current.name}</strong></div>
-        <p style="color:var(--text-secondary);margin-bottom:16px">Discussion notes are private until you share them.</p>
-        <button class="btn btn-warning btn-lg" onclick="openDiscussionForCurrent()">Open Discussion Notes</button>
-      </div>
-    `;
   }
 
-  if (!state.showRole && isSoloMode()) {
-    state.showRole = true;
-  }
+  const hostBlocked = isMultiDevice && !state.network.isHost;
+  const buttonLabel = hostBlocked
+    ? 'Waiting for Host'
+    : timerLocked
+      ? `Continue in ${Math.ceil(remainingMs / 1000)}s`
+      : 'Proceed to Voting';
 
-  const myIntel = state.intelResults[current.id] || {
+  const myIntel = current ? (state.intelResults[current.id] || {
     heard: 'Nothing conclusive tonight. Compare stories before voting.',
     saw: null,
     nearby: null
-  };
-  const dayMessages = state.chatMessages.filter(message => message.day === state.dayNumber);
-  const chatIsProminent = aliveHumans.length > 1
-    || state.players.length > 1
-    || (state.multiplayerMode === 'realtime' && (state.network.devices || []).length > 1);
+  }) : null;
 
   return `
     <div class="card">
-      <div style="font-size:1.5rem;margin-bottom:16px">💬 Discussion Time</div>
-
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <span style="color:${ROLES[current.role]?.color}">${ROLES[current.role]?.icon}</span>
-        <strong>${current.name}</strong>
-      </div>
-
-      <div class="intel-box" style="text-align:left">
-        <div class="intel-header">🔍 What you learned last night:</div>
-        ${myIntel.heard ? `<div class="intel-item">👂 ${myIntel.heard}</div>` : ''}
-        ${myIntel.saw ? `<div class="intel-item" style="font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
-        ${myIntel.nearby ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
-        ${myIntel.tracked ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.tracked}</div>` : ''}
-      </div>
-
-      <div class="chat-panel ${chatIsProminent ? 'chat-panel-prominent' : ''}">
-        <div class="chat-header">🗨️ Discussion Chat</div>
-        ${aliveHumans.length > 1 ? `
-          <div class="chat-senders">
-            ${aliveHumans.map(player => `
-              <button class="chat-sender-btn ${state.chatSenderId === player.id ? 'active' : ''}" onclick="setChatSender('${player.id}')">
-                ${player.name}
-              </button>
-            `).join('')}
-          </div>
-        ` : ''}
-        <div class="chat-messages">
-          ${dayMessages.length === 0 ? '<div style="color:var(--text-secondary);font-size:0.9rem">No messages yet this round.</div>' : dayMessages.map(message => `
-            <div class="chat-message ${message.senderId?.startsWith('bot') ? 'chat-message-bot' : ''}">
-              <span class="chat-author">${message.senderName}:</span> ${message.text}
-            </div>
-          `).join('')}
-        </div>
-        <div class="chat-compose">
-          <input class="input" type="text" value="${state.chatDraft.replace(/"/g, '&quot;')}"
-                 oninput="setChatDraft(this.value)"
-                 onkeydown="if(event.key==='Enter'){event.preventDefault();sendDiscussionMessage();}"
-                 placeholder="Type message and press Enter"/>
-          <button class="btn btn-secondary btn-small" onclick="sendDiscussionMessage()">Send</button>
-        </div>
-      </div>
-
-      <p style="color:var(--text-secondary);margin-bottom:16px">
-        Discuss what happened. Share info, make accusations, defend yourself.
+      <div style="font-size:1.5rem;margin-bottom:12px">💬 Discussion Time</div>
+      <p style="color:var(--text-secondary);margin-bottom:14px">
+        ${isMultiDevice
+          ? 'Use the corner chat to compare clues. Narrator (if human mode) should set mood first, then host advances to voting.'
+          : (isSoloMode()
+            ? 'Review your intel, then continue into voting.'
+            : 'Talk out loud for a few seconds, then continue to private voting turns.')}
       </p>
-      <button class="btn btn-warning btn-lg" onclick="advanceDiscussion()">
-        ${nextHuman !== -1 && !isSoloMode() ? 'Pass to Next Player' : 'Proceed to Vote'}
+
+      ${isSoloMode() && myIntel ? `
+        <div class="intel-box" style="text-align:left">
+          <div class="intel-header">🔍 Your intel recap:</div>
+          ${myIntel.heard ? `<div class="intel-item">👂 ${myIntel.heard}</div>` : ''}
+          ${myIntel.saw ? `<div class="intel-item" style="font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
+          ${myIntel.nearby ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
+          ${myIntel.tracked ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.tracked}</div>` : ''}
+        </div>
+      ` : ''}
+
+      <button class="btn btn-warning btn-lg" onclick="advanceDiscussion()" ${timerLocked || hostBlocked ? 'disabled' : ''}>
+        ${buttonLabel}
       </button>
     </div>
   `;
@@ -1086,11 +1161,11 @@ function renderInstructionsModal() {
   } else {
     content = `
       <h3 style="color:var(--purple-accent);margin-bottom:12px">👥 Modes</h3>
-      <p><strong>Solo:</strong> no pass prompts, bot turns auto-advance with readable pacing.</p>
-      <p style="margin-top:8px"><strong>Pass-and-Play:</strong> prompts say "Pass to [name]" for private turns.</p>
-      <p style="margin-top:8px"><strong>Discussion chat:</strong> if multiple players share one device, messages show sender names.</p>
+      <p><strong>Solo:</strong> one human player, all other seats are bots, and the game advances without pass prompts.</p>
+      <p style="margin-top:8px"><strong>Multiplayer single-device:</strong> everyone plays on one screen, passing privately for role reveal, planning, and voting.</p>
+      <p style="margin-top:8px"><strong>Multiplayer multi-device:</strong> each device joins the same room from the multiplayer lobby and syncs through one host.</p>
+      <p style="margin-top:8px"><strong>Discussion flow:</strong> use the chat area to compare clues first, then continue into voting when discussion ends.</p>
       <p style="margin-top:8px"><strong>Bot chat:</strong> when enabled, bots can add short discussion lines during debate.</p>
-      <p style="margin-top:8px"><strong>Multi-device:</strong> lobby/chat/sync support is designed to stay compatible with this same phase flow.</p>
     `;
   }
 
