@@ -3571,12 +3571,11 @@ function evaluateWinCondition() {
   const alivePlayers = getAlivePlayers();
   const mafiaAlive = alivePlayers.filter(p => p.role === 'mafia').length;
   const townAlive = alivePlayers.filter(p => p.role !== 'mafia').length;
-  const humansAlive = alivePlayers.filter(p => !p.isBot).length;
 
-  // Resolve a decisive game outcome FIRST. Otherwise, when the last living
-  // human happens to be the last Mafia who just got eliminated, both
-  // "all mafia dead" and "all humans eliminated" are true at once and the
-  // humans-eliminated fallback would wrongly steal Town's legitimate win.
+  // The game is decided ONLY by faction outcome. A human player dying (e.g. the
+  // solo player) does not end the game — they spectate while the remaining
+  // players (bots) play it out to a real Town or Mafia win. This avoids the
+  // illogical "Mafia wins" when a townsperson is simply killed.
   if (mafiaAlive === 0) {
     return {
       winner: 'town',
@@ -3588,14 +3587,6 @@ function evaluateWinCondition() {
     return {
       winner: 'mafia',
       reason: 'Mafia now outnumber Town.'
-    };
-  }
-
-  // Fallback (mainly solo): no human-controlled players remain to keep playing.
-  if (state.screen === 'game' && humansAlive === 0) {
-    return {
-      winner: 'mafia',
-      reason: 'All human-controlled players were eliminated.'
     };
   }
 

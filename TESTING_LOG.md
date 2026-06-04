@@ -637,3 +637,27 @@ Relay updated for cloud hosting: reads `$PORT`, binds `0.0.0.0`, answers HTTP `G
 ### Deploy prep
 - `.nojekyll`, `render.yaml`, `Procfile`, `DEPLOYMENT.md` added; `requirements.txt` pinned `websockets>=13.0`.
 - Static client → GitHub Pages (`master` root). Relay → Render free tier (one-time owner signup), then set `productionRelayUrl` in `scripts/config.js`.
+
+---
+
+## Session 21: Val Town Relay Prep + Spectator Flow + Multiplayer Matrix (2026-06-04)
+
+**Tester:** Claude Code (Opus 4.8)
+**Method:** Playwright (headless Chromium) against the local unified backend (`server.py`, relay on 0.0.0.0:8765).
+
+### Changes
+- `valtown/mafia-relay.ts` (Deno/TS port of the relay) + `valtown/deploy.py` (stdlib deploy via Val Town REST API). Pending owner's VALTOWN_TOKEN.
+- Spectator continuation: solo player death no longer ends the game; it resolves by faction and the player spectates (`evaluateWinCondition` simplified; auto-advance added to day/discussion/announcement/vote modals when no human is alive; spectator banner).
+- Fixed stale `waitForConnected` in the 10-run matrix (now uses `state.network.connected`).
+
+### Results
+| Test | Status | Notes |
+|------|--------|-------|
+| Deterministic logic checks (`/tmp/verify_fixes`) | PASS | 6/6; win-condition still correct after simplification |
+| Spectator continuation (kill solo human mid-game) | PASS | Auto-plays to a faction win ("Mafia now outnumber Town"), no stall, 0 pageerrors |
+| Button sweep | PASS | Full solo flow to game over |
+| Join guardrails (realtime) | PASS | Host/join connect, invalid-code rejected, join lobby readiness |
+| 10-run matrix | PASS 10/10 | 4 solo + 3 single-device + 3 realtime host/join full games to game-over with state sync |
+
+### Notes
+- The matrix realtime runs initially showed 7/10 due to a stale `text=Connection:` readiness selector (the join lobby UI changed in a prior session); fixing the detector to read `state.network.connected` restored 10/10. Real connectivity was never broken (`join_guardrails` passed throughout).

@@ -881,6 +881,11 @@ function renderGame() {
   } else {
     // Announcement modal
     if ((state.gamePhase === 'announcement' || state.gamePhase === 'vote_announcement') && state.announcement) {
+      // Spectator (no living human): auto-dismiss the modal so play continues.
+      const advanceHandler = state.gamePhase === 'announcement' ? 'afterAnnouncement' : 'afterVoteAnnouncement';
+      if (getAliveHumans().length === 0) {
+        scheduleAutoAdvance(`announce_spectate_${state.gamePhase}_${state.dayNumber}`, advanceHandler, Math.max(1400, state.botDelayMs));
+      }
       content = `
         <div class="modal-overlay">
           <div class="modal-content">
@@ -962,6 +967,14 @@ function renderGame() {
           ? `<div class="phase-subtitle">Round ${state.dayNumber}</div>`
           : ''}
       </div>
+
+      ${(() => {
+        const human = getAllPlayers().find(p => !p.isBot);
+        if (isSoloMode() && human && !human.alive && state.gamePhase !== 'gameover') {
+          return `<div class="device-turn-banner device-turn-remote">👁 You were eliminated (${getRoleDisplayName(human.role)}). Watching how it plays out…</div>`;
+        }
+        return '';
+      })()}
 
       ${renderNarratorQuickControls()}
 
@@ -1226,11 +1239,15 @@ function renderRevealPhase(current) {
 function renderDayPhase(current, allPlayers) {
   if (!current) return '';
 
-  if (current.isBot) {
+  // A bot's turn — or an eliminated player's turn (spectating) — auto-advances.
+  if (current.isBot || !current.alive) {
     scheduleAutoAdvance(`day_${current.id}_${state.dayNumber}`, 'skipBotDay');
+    const label = current.alive
+      ? `🤖 ${current.name} is planning`
+      : `💀 ${current.name} is out — skipping`;
     return `
       <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary);margin-bottom:12px">🤖 ${current.name} is planning ${renderThinkingDots()}</div>
+        <div style="color:var(--text-secondary);margin-bottom:12px">${label} ${renderThinkingDots()}</div>
         <div style="color:var(--text-secondary);font-size:0.9rem">Continuing in ~${state.botDelayMs}ms</div>
       </div>
     `;
@@ -1556,6 +1573,17 @@ function renderDoctorPhase(alivePlayers) {
 
 function renderDiscussionPhase(current) {
   const isMultiDevice = isMultiDeviceChatEnabled();
+  // No living human left to advance (e.g. the solo player is spectating after
+  // being eliminated): auto-proceed to the vote so the game keeps playing out.
+  if (getAliveHumans().length === 0) {
+    scheduleAutoAdvance(`discussion_spectate_${state.dayNumber}`, 'proceedToVote');
+    return `
+      <div class="card" style="text-align:center">
+        <div style="font-size:1.25rem;margin-bottom:8px">💬 The room debates ${renderThinkingDots()}</div>
+        <div style="color:var(--text-secondary)">Watching the others decide who to accuse...</div>
+      </div>
+    `;
+  }
   const remainingMs = Math.max(0, (state.discussionUnlockAt || 0) - Date.now());
   const timerLocked = !isSoloMode() && remainingMs > 0;
   if (timerLocked) {

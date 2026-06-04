@@ -263,9 +263,16 @@ async function runPassplay(browser, run) {
   }
 }
 
-async function waitForConnected(page, timeoutMs = 14000) {
+async function waitForConnected(page, timeoutMs = 16000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
+    // Authoritative readiness: the client flips state.network.connected once the
+    // relay acknowledges join. The visible "Connection:" line differs between the
+    // host panel and the join lobby, so don't rely on it alone.
+    const connected = await page.evaluate(
+      () => typeof state !== 'undefined' && !!state.network && state.network.connected === true,
+    ).catch(() => false);
+    if (connected) return true;
     const status = await page.locator('text=Connection:').first().innerText().catch(() => '');
     if (/Connected/i.test(status)) return true;
     await page.waitForTimeout(220);
