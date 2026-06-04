@@ -74,7 +74,12 @@ def main() -> None:
         raise SystemExit(f"[deploy] Missing relay source: {RELAY_FILE}")
     code = RELAY_FILE.read_text(encoding="utf-8")
 
-    existing = find_existing_val(token)
+    try:
+        existing = find_existing_val(token)
+    except SystemExit as e:
+        # A lookup hiccup must not block a first-time deploy — just create fresh.
+        print(f"[deploy] (lookup skipped: {e})")
+        existing = None
     if existing:
         val_id = existing["id"]
         print(f"[deploy] Reusing existing val '{VAL_NAME}' ({val_id})")
@@ -92,7 +97,9 @@ def main() -> None:
     else:
         print(f"[deploy] Creating val '{VAL_NAME}'...")
         val = req("POST", "/v2/vals", token, {"name": VAL_NAME, "privacy": "public"})
-        val_id = val["id"]
+        val_id = val.get("id")
+        if not val_id:
+            raise SystemExit(f"[deploy] Unexpected create response (no id): {val}")
         file_resp = req(
             "POST", f"/v2/vals/{val_id}/files",
             token, {"path": "main.tsx", "content": code, "type": "http"},
