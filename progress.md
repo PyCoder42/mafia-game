@@ -540,3 +540,10 @@ Note:
 - Transcript audit: confirmed the full set of historical requests (one Feb-13 Codex session, ~23 distinct asks) and verified the concrete removal/rename items are all done (no `?` border, no "Classic target"/"Hover to see the underline"/"This page is locked"/"Direct hotlink"/"Read This Full Variant", no "* 2" duplicate files; Instructions modal, back nav, QR click-to-copy, copy buttons present).
 - Validation (Playwright): deterministic logic checks PASS; spectator continuation auto-resolves to a faction win with no stall/errors; button sweep PASS; 10-run matrix 10/10 (4 solo + 3 single-device + 3 realtime host/join full games).
 - Pending: owner provides a Val Town API token; then deploy.py runs, the wss:// URL goes into scripts/config.js, and online multiplayer is verified on the live GitHub Pages site.
+
+## 2026-06-06 - Online multiplayer LIVE on Deno Deploy
+- Confirmed Val Town cannot host a WebSocket relay (HTTP vals don't accept WS upgrades; live upgrade returns 200 not 101). Pivoted to Deno Deploy (native Deno.upgradeWebSocket) per owner's choice.
+- Deployed the relay to Deno Deploy via the built-in `deno deploy` CLI (new console.deno.com platform): org `pycoder42`, app `mafia-relay-pycoder42`, region `global`, runtime-mode dynamic, entrypoint relay.ts. Live at https://mafia-relay-pycoder42.pycoder42.deno.net.
+- `scripts/config.js` productionRelayUrl -> wss://mafia-relay-pycoder42.pycoder42.deno.net; pushed; GitHub Pages rebuilt.
+- Removed dead `valtown/` (relay handler now self-contained in `deno-deploy/relay.ts`); rewrote `deno-deploy/deploy.sh` for the new platform; org/app recorded in `deno-deploy/deno.jsonc`.
+- Verified the deployed relay over wss:// (health 200, host/join, presence, action forwarding) AND end-to-end on the LIVE github.io site: two browsers host+join+sync a game start through the relay over the internet (8/8 checks, 0 errors).

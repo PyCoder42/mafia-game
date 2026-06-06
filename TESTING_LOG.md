@@ -661,3 +661,19 @@ Relay updated for cloud hosting: reads `$PORT`, binds `0.0.0.0`, answers HTTP `G
 
 ### Notes
 - The matrix realtime runs initially showed 7/10 due to a stale `text=Connection:` readiness selector (the join lobby UI changed in a prior session); fixing the detector to read `state.network.connected` restored 10/10. Real connectivity was never broken (`join_guardrails` passed throughout).
+
+---
+
+## Session 22: Online Multiplayer Live on Deno Deploy (2026-06-06)
+
+**Tester:** Claude Code (Opus 4.8) | **Method:** Playwright (headless Chromium) against the LIVE GitHub Pages site + the deployed relay.
+
+- Val Town WS limitation confirmed live (upgrade -> 200, not 101). Relay deployed to Deno Deploy (native WebSockets) at https://mafia-relay-pycoder42.pycoder42.deno.net.
+- `scripts/config.js` points the live site at `wss://mafia-relay-pycoder42.pycoder42.deno.net`.
+
+| Test | Status | Notes |
+|------|--------|-------|
+| Relay on Deno runtime (local) | PASS | health 200, host/join, presence, action forwarding |
+| Deployed relay over wss:// | PASS | health 200 + full handshake/presence/action forwarding |
+| LIVE online multiplayer (github.io <-> Deno relay) | PASS 8/8 | 2 browsers host+join over internet, presence=2, host Start synced reveal+3 participants to joiner, 0 pageerrors |
+| Live Pages solo + pass-and-play (regression) | PASS | unchanged; clean console |

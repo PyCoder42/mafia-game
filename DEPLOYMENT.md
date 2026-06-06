@@ -61,17 +61,20 @@ On `localhost`/LAN the client auto-detects this backend (via `/api/network-info`
 
 ---
 
-## Update: online relay host = Deno Deploy (native WebSockets)
+## Online relay host = Deno Deploy (native WebSockets) — LIVE
 
-Val Town turned out not to support server-side WebSockets (HTTP vals can't accept
-WS upgrades — confirmed live: the upgrade returns 200 instead of 101). The relay
-therefore runs on **Deno Deploy**, which supports `Deno.upgradeWebSocket` natively,
-so the WebSocket client + relay are reused unchanged.
+Val Town can't host the relay (its HTTP vals don't accept WebSocket upgrades —
+confirmed live: the upgrade returns `200` instead of `101`). The relay therefore
+runs on **Deno Deploy**, which supports `Deno.upgradeWebSocket` natively, so the
+WebSocket relay + client are used unchanged.
 
-- Relay entry: `deno-deploy/relay.ts` (serves the handler in `valtown/mafia-relay.ts`).
-- Deploy: `DENO_DEPLOY_TOKEN=<token> bash deno-deploy/deploy.sh`
-  (token from https://dash.deno.com/account#access-tokens).
-- Then set `productionRelayUrl: 'wss://<project>.deno.dev'` in `scripts/config.js` and push.
+- **Relay (deployed & live):** `https://mafia-relay-pycoder42.pycoder42.deno.net`
+  → `scripts/config.js` uses `wss://mafia-relay-pycoder42.pycoder42.deno.net`.
+- **Source:** `deno-deploy/relay.ts` (self-contained; org/app in `deno-deploy/deno.jsonc`).
+- **Redeploy:** `DENO_DEPLOY_TOKEN=<token> bash deno-deploy/deploy.sh`
+  (token from https://dash.deno.com/account#access-tokens; needs the `deno` CLI:
+  `curl -fsSL https://deno.land/install.sh | sh`).
+- Production URL pattern: `https://<app>.<org>.deno.net` (relay = `wss://…`).
 
-`valtown/` is kept only as the source of the shared relay handler; Val Town itself
-is not used to host (it can't do WebSockets).
+Verified end-to-end: two browsers on the live GitHub Pages site host + join + sync
+a game through this relay over the internet.
