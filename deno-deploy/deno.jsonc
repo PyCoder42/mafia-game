@@ -1,0 +1,7 @@
+{
+  "deploy": {
+    "org": "pycoder42",
+    "app": "mafia-relay-pycoder42"
+  }
+}
+

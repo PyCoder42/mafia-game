@@ -18,5 +18,5 @@
 //     to wss:// to avoid blocked mixed content).
 //   - This file is loaded before game.js on every app page.
 window.MAFIA_CONFIG = Object.assign({
-  productionRelayUrl: ''
+  productionRelayUrl: 'wss://mafia-relay-pycoder42.pycoder42.deno.net'
 }, window.MAFIA_CONFIG || {});
