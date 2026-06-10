@@ -892,3 +892,221 @@ button::-moz-focus-inner { border: 0; }
 ::-webkit-scrollbar-track { background: rgba(30, 30, 50, 0.5); border-radius: 4px; }
 ::-webkit-scrollbar-thumb { background: rgba(100, 100, 130, 0.5); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(120, 120, 150, 0.7); }
+
+/* ===== 12-item pass: info/reliability chips, projector view, map, tutorial ===== */
+
+/* Information-value chip: green "reward" scale, distinct from exposure "risk". */
+.info-chip {
+  display: inline-block;
+  font-size: 0.74rem;
+  padding: 2px 8px;
+  border: 1px solid #34d399;
+  color: #34d399;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.location-badges {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Honest reliability badges on intel lines. */
+.reliability-chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.reliability-confirmed { border: 1px solid #4ade80; color: #4ade80; }
+.reliability-likely { border: 1px solid #facc15; color: #facc15; }
+.reliability-uncertain { border: 1px solid #fb923c; color: #fb923c; }
+
+.intel-item { margin: 4px 0; line-height: 1.45; }
+
+/* Fullscreen Gimkit-style projector view: giant code + QR on a light field. */
+.big-code-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: #f5f3ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.big-code-inner {
+  text-align: center;
+  padding: 24px;
+  cursor: default;
+  max-width: min(92vw, 900px);
+}
+.big-code-label {
+  color: #6d28d9;
+  font-size: clamp(1.1rem, 3vw, 1.8rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.big-code-value {
+  color: #1e1b4b;
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(4rem, 18vw, 12rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.05;
+  margin: 6px 0 14px;
+  user-select: all;
+}
+.big-code-qr {
+  width: clamp(180px, 32vmin, 380px);
+  height: clamp(180px, 32vmin, 380px);
+  border: 10px solid #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 35px rgba(30, 27, 75, 0.25);
+  pointer-events: none;
+  user-select: none;
+}
+.big-code-url {
+  margin-top: 14px;
+  color: #4c1d95;
+  font-size: clamp(0.85rem, 2vw, 1.15rem);
+  word-break: break-all;
+  font-weight: 600;
+}
+.big-code-hint {
+  margin-top: 8px;
+  color: #7c6fa8;
+  font-size: 0.9rem;
+}
+.big-code-close {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  background: rgba(30, 27, 75, 0.08);
+  border: none;
+  color: #1e1b4b;
+  font-size: 1.4rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.big-code-close:hover { background: rgba(30, 27, 75, 0.16); }
+
+/* Map polish */
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.map-legend-item {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 2px 9px;
+  text-transform: capitalize;
+}
+.exposure-heat {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 6px 0 4px;
+  overflow: hidden;
+}
+.exposure-heat-fill { height: 100%; border-radius: 2px; }
+.floorplan-room-here {
+  border-color: #a855f7 !important;
+  box-shadow: 0 0 0 1px #a855f7, 0 4px 16px rgba(168, 85, 247, 0.25);
+}
+.you-are-here {
+  font-size: 0.72rem;
+  color: #d8b4fe;
+  background: rgba(168, 85, 247, 0.18);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* Map hint callout */
+.map-hint-callout {
+  position: fixed;
+  top: 64px;
+  right: 16px;
+  z-index: 900;
+  background: var(--bg-card);
+  border: 1px solid #a855f7;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  padding: 12px 14px;
+  max-width: 270px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: hint-pop 0.35s ease;
+}
+.map-hint-arrow {
+  position: absolute;
+  top: -14px;
+  right: 28px;
+  color: #a855f7;
+  font-size: 1.2rem;
+}
+.map-hint-text { font-size: 0.88rem; color: var(--text-primary); line-height: 1.4; }
+@keyframes hint-pop {
+  from { transform: translateY(6px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* First-run tutorial overlay */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(8, 6, 18, 0.82);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.tutorial-card {
+  background: var(--bg-card);
+  border: 1px solid #a855f7;
+  border-radius: 16px;
+  max-width: 460px;
+  width: 100%;
+  padding: 22px 22px 18px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+}
+.tutorial-progress { display: flex; gap: 6px; margin-bottom: 12px; }
+.tutorial-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+}
+.tutorial-dot.active { background: #a855f7; }
+.tutorial-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.3rem;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+.tutorial-body { color: var(--text-primary); font-size: 0.95rem; line-height: 1.55; }
+.tutorial-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 16px;
+}

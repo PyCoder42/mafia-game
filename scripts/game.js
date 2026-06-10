@@ -161,6 +161,80 @@ const EXPOSURE_BY_NODE_TYPE = {
   utility: 0.45
 };
 
+// How much useful information each action KIND tends to yield. Independent of
+// exposure: hiding keeps you safe but blind; snooping is informative but loud.
+const INFO_BY_ACTION_KIND = {
+  snoop: 0.82,
+  linger: 0.52,
+  routine: 0.3,
+  hide: 0.15
+};
+
+// Reliability tiers shown on intel lines. These SAME numbers drive generation,
+// so the label a player reads is mechanically honest: confirmed = ground truth
+// with a tiny error band; likely = details correct ~78% of the time;
+// uncertain = barely better than a coin flip.
+const INTEL_RELIABILITY = {
+  confirmed: 0.97,
+  likely: 0.78,
+  uncertain: 0.55
+};
+
+// Gameplay presets (distinct from ratio presets): rule modifiers that change
+// real calculations. They stack multiplicatively with ENVIRONMENT_PROFILES.
+const GAMEPLAY_PRESETS = [
+  {
+    id: 'standard',
+    name: 'Standard Rules',
+    desc: 'No rule modifiers. Information, exposure, and saves use baseline math.',
+    color: '#64748b',
+    mods: {}
+  },
+  {
+    id: 'sharp_eyes',
+    name: 'Sharp Eyes',
+    desc: 'Detectives are more useful: stealthier while snooping, and shadowing a single person returns near-perfect information.',
+    color: '#a855f7',
+    mods: { detectiveStealth: 0.7, detectiveInfo: 1.2, podSnoopAccuracy: 1.05 }
+  },
+  {
+    id: 'paranoid_house',
+    name: 'Paranoid House',
+    desc: 'Everyone sleeps lightly: witnesses notice more and every move is more exposed. Loud games, fast accusations.',
+    color: '#f59e0b',
+    mods: { witness: 1.3, exposure: 1.12 }
+  },
+  {
+    id: 'deep_cover',
+    name: 'Deep Cover',
+    desc: 'The Mafia operate cleanly: fewer witnesses, and doctors find victims harder to stabilize. Quiet, brutal nights.',
+    color: '#ef4444',
+    mods: { witness: 0.75, save: 0.85 }
+  }
+];
+
+// Detective night stances (the detective's role-flavored night turn).
+const DETECTIVE_STANCE_OPTIONS = [
+  {
+    id: 'shadow_target',
+    name: '🕵️ Shadow one person',
+    desc: 'Watch one person\'s room all night: near-certain truth about what they did. But if any Mafia passes close to that room, they will very likely notice you.',
+    requiresTarget: true
+  },
+  {
+    id: 'sweep_routes',
+    name: '🧭 Sweep the routes',
+    desc: 'Patrol broadly: a decent chance of catching movement near you, with moderate visibility.',
+    requiresTarget: false
+  },
+  {
+    id: 'lay_low',
+    name: '🫥 Lay low',
+    desc: 'Stay put and stay safe. You learn little, but nobody learns about you either.',
+    requiresTarget: false
+  }
+];
+
 const NARRATION_PRESETS = window.NARRATION_PRESETS || {
   gothic: {
     intro: 'Stormlight cuts across old stone walls. Every corridor carries a rumor.',
@@ -287,13 +361,18 @@ function inferActionKind(action) {
 function buildAction(id, name, desc, exposure, options = {}) {
   const normalizedExposure = clamp01(exposure);
   const kind = options.kind || inferActionKind({ id, name });
+  // Information value is INDEPENDENT of exposure: driven by what you're doing
+  // (kind), nudged by how exposed the spot is (you see more where more happens).
+  const baseInfo = INFO_BY_ACTION_KIND[kind] ?? 0.35;
+  const info = clamp01(options.info ?? (baseInfo * 0.8 + normalizedExposure * 0.25));
   return {
     id,
     name,
     desc,
     kind,
     exposure: normalizedExposure,
-    intel: normalizedExposure,
+    info,
+    intel: info,
     risk: toLegacyRisk(normalizedExposure),
     requiresTarget: Boolean(options.requiresTarget),
     detectivePreferred: Boolean(options.detectivePreferred ?? (kind === 'snoop' || kind === 'linger')),
@@ -312,16 +391,16 @@ function buildLocationActions(node, baseExposure) {
 
   if (node.type === 'private_cluster') {
     return [
-      buildAction('sleep_lock', '🛏️ Sleep and lock', 'Stay in their bedroom with doors secured.', low, { kind: 'hide' }),
-      buildAction('sleep_unlocked', '🛏️ Sleep without locking', 'Rest lightly and keep a quick exit route.', med, { kind: 'routine' }),
-      buildAction('porch_watch', '🪟 Porch watch', 'Step out near the porch and watch nearby routes.', clamp01(baseExposure + 0.08), { kind: 'linger' })
+      buildAction('sleep_lock', '🛏️ Sleep and lock', 'Bolt the door. Intruders must break in — they often give up, and the noise wakes neighbors — but if they DO get through, the lock that protected you now traps you: no exit until morning.', low, { kind: 'hide' }),
+      buildAction('sleep_unlocked', '🛏️ Sleep without locking', 'Rest lightly and keep a quick exit route. Mafia can slip in quietly if nobody alert is nearby to notice them trying doors — but an unlocked door means you have a real chance to bolt and survive.', med, { kind: 'routine' }),
+      buildAction('porch_watch', '🪟 Porch watch', 'Stay half-awake near the porch watching nearby routes. No one can creep up on you quietly, and you may spot late-night movement — at the cost of being clearly visible yourself.', clamp01(baseExposure + 0.08), { kind: 'linger' })
     ];
   }
 
   if (node.type === 'investigation') {
     return [
       buildAction('snoop_routes', '🕵️ Snoop routes', 'Track movement patterns across connected rooms.', high, { kind: 'snoop', detectivePreferred: true }),
-      buildAction('snoop_room', '🕵️ Snoop someone\'s room', 'Choose one person and shadow their bedroom zone.', clamp01(high + 0.04), { kind: 'snoop', requiresTarget: true, detectivePreferred: true }),
+      buildAction('snoop_room', '🕵️ Snoop someone\'s room', 'Shadow one person\'s room all night: near-certain truth about what THEY did — but if any Mafia passes close to that room, they will very likely notice you.', clamp01(high + 0.04), { kind: 'snoop', requiresTarget: true, detectivePreferred: true, info: 0.95 }),
       buildAction('linger_logs', '📒 Linger over clues', 'Stay alert and catalog suspicious details.', med, { kind: 'linger', detectivePreferred: true })
     ];
   }
@@ -654,6 +733,7 @@ const state = {
   players: [],
   bots: [],
   selectedPreset: ROLE_PRESETS[0],
+  selectedGameplayPreset: 'standard',
   roleConfig: { mafia: 1, doctor: 1, detective: 0, villager: 0 },
   selectedStory: STORY_PRESETS[0],
   gamePhase: 'reveal',
@@ -664,9 +744,12 @@ const state = {
   nightPlans: {},
   snoopAssignments: {},
   snoopersByTarget: {},
+  snoopPrimaryTargets: {},
   mafiaSnooperIntel: {},
   mafiaBriefing: {},
   nightAwareness: {},
+  detectiveStances: {},
+  nightDefenseOutcome: null,
   nightAttackCounts: {},
   nightAttackMethod: null,
   mafiaVisionMode: {},
@@ -697,11 +780,14 @@ const state = {
   selectedTarget: null,
   selectedKillMethod: null,
   selectedAwareness: null,
+  selectedStance: null,
+  selectedStanceTarget: null,
   selectedSave: null,
   selectedVote: null,
   showInstructions: false,
   showSettings: false,
   showMap: false,
+  tutorialStep: null,
   selectedMapFloor: null,
   showBigRoomCode: false,
   autoJoinPending: Boolean(INITIAL_JOIN_CODE || (ROLE_PARAM === 'join' && INITIAL_ROOM_CODE)),
@@ -824,6 +910,18 @@ function getEnvironmentProfile() {
   return ENVIRONMENT_PROFILES.find(profile => profile.id === selected) || ENVIRONMENT_PROFILES[0];
 }
 
+function getGameplayPreset() {
+  const selected = String(state.selectedGameplayPreset || 'standard');
+  return GAMEPLAY_PRESETS.find(preset => preset.id === selected) || GAMEPLAY_PRESETS[0];
+}
+
+// Multiplier accessor for gameplay-preset rule mods (1 = no change).
+function getGameplayMod(key) {
+  const mods = getGameplayPreset().mods || {};
+  const value = Number(mods[key]);
+  return Number.isFinite(value) && value > 0 ? value : 1;
+}
+
 function getAdjustedDisturbance(method) {
   const profile = getEnvironmentProfile();
   const base = clamp01(method?.noise ?? 0.3);
@@ -834,6 +932,21 @@ function getAdjustedCureDifficulty(method) {
   const profile = getEnvironmentProfile();
   const base = clamp01(method?.cureDifficulty ?? 0.6);
   return clamp01(base + (profile.cureDifficultyShift || 0));
+}
+
+// Chance a witness-style roll succeeds, with gameplay-preset scaling.
+function applyWitnessMods(chance) {
+  return clamp01(chance * getGameplayMod('witness'));
+}
+
+// Chance a snooper is noticed by mafia: detectives are genuinely stealthier,
+// and Sharp Eyes makes them stealthier still (multiplier < 1 reduces detection).
+function getSnooperDetectionChance(snooper, { podSnoop = false } = {}) {
+  let base = snooper.role === 'detective' ? 0.35 : 0.72;
+  // Pod-snooping someone's room is intrusive: dangerous even for detectives.
+  if (podSnoop) base = snooper.role === 'detective' ? 0.55 : 0.85;
+  if (snooper.role === 'detective') base *= getGameplayMod('detectiveStealth');
+  return clamp01(base);
 }
 
 function getPlanExposure(player, plan) {
@@ -850,15 +963,20 @@ function getPlanExposure(player, plan) {
 
   if (player.role === 'detective') exposure = clamp01(exposure - 0.18);
 
-  return clamp01(exposure * (profile.exposureMultiplier || 1));
+  return clamp01(exposure * (profile.exposureMultiplier || 1) * getGameplayMod('exposure'));
 }
 
 function getPlanIntelChance(player, plan) {
-  const exposure = getPlanExposure(player, plan);
-  let chance = clamp01(0.2 + (exposure * 0.7));
-  if (player.role === 'detective') chance = clamp01(chance + 0.14);
-  if (plan?.action?.kind === 'snoop') chance = clamp01(chance + 0.08);
-  if (plan?.action?.kind === 'hide') chance = clamp01(chance - 0.06);
+  if (!player || !plan?.action) return 0;
+  const location = getLocationById(plan.location);
+  // Information now flows from the action's info stat (what you're doing), with
+  // the location's traffic as a secondary factor — NOT from exposure directly.
+  const actionInfo = clamp01(plan.action.info ?? plan.action.intel ?? 0.35);
+  const locationTraffic = clamp01(location?.exposure ?? 0.4);
+  let chance = clamp01(0.12 + (actionInfo * 0.62) + (locationTraffic * 0.2));
+  if (player.role === 'detective') {
+    chance = clamp01((chance + 0.14) * getGameplayMod('detectiveInfo'));
+  }
   return chance;
 }
 
@@ -919,7 +1037,6 @@ function getNarratorPhasePrompt(phase = state.gamePhase) {
     reveal: 'Narrator turn: set the scene and remind players that role reveals stay private.',
     day: 'Narrator turn: warn players that exposure brings both information and danger.',
     night: 'Narrator turn: describe the night atmosphere without revealing secret role actions.',
-    morning_doctor: 'Narrator turn: frame the aftermath before doctors lock in a save attempt.',
     announcement: 'Narrator turn: deliver the public night outcome before discussion begins.',
     discussion: 'Narrator turn: open discussion and ask players to compare timelines.',
     vote: 'Narrator turn: call for calm voting and evidence-based choices.',
@@ -1659,10 +1776,11 @@ function getShareJoinUrl(code = state.gameCode) {
   return `${joinPortal}${connector}join=${encodeURIComponent(roomCode)}&role=join&screen=multi`;
 }
 
-function getShareQrImageUrl(code = state.gameCode) {
+function getShareQrImageUrl(code = state.gameCode, size = 180) {
   const shareUrl = getShareJoinUrl(code);
   if (!shareUrl) return '';
-  return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(shareUrl)}`;
+  const px = Math.max(120, Math.min(720, Number(size) || 180));
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${px}x${px}&data=${encodeURIComponent(shareUrl)}`;
 }
 
 function getRelayCandidates() {
@@ -1956,6 +2074,8 @@ function applyRealtimeStateSnapshot(snapshot) {
     const keepEntryPage = state.entryPage;
     const keepInstructions = state.showInstructions;
     const keepSettings = state.showSettings;
+    // Tutorial progress is per-device UI state, never synced from the host.
+    const keepTutorialStep = state.tutorialStep;
     const incomingDeviceOrder = Array.isArray(snapshot._networkDeviceOrder) ? [...snapshot._networkDeviceOrder] : null;
 
     Object.keys(snapshot).forEach(key => {
@@ -1974,6 +2094,7 @@ function applyRealtimeStateSnapshot(snapshot) {
     state.entryPage = keepEntryPage;
     state.showInstructions = keepInstructions;
     state.showSettings = keepSettings;
+    state.tutorialStep = keepTutorialStep;
   } finally {
     realtime.applyingRemoteState = false;
   }
@@ -2364,7 +2485,7 @@ function buildBotDiscussionLine(bot, alivePlayers, triggerText = '') {
     lead ? `I heard movement around ${lead.name}'s area.` : 'I heard footsteps but could not confirm who it was.',
     plan?.locationName ? `I was around ${plan.locationName}. Something felt wrong there.` : 'My route was quiet, but someone still made a move.',
     lead && fallback ? `Let's compare ${lead.name} and ${fallback.name}. Their stories do not line up.` : 'No hard proof yet. Compare timelines before voting.',
-    intel?.heard ? `${intel.heard}` : 'I do not have proof, but we should pressure contradictions.',
+    intelItemText(intel?.heard) || 'I do not have proof, but we should pressure contradictions.',
     triggerEcho ? `On that point ("${triggerEcho}"), we should question who was nearby.` : 'Who had opportunity last night? Start there.'
   ].filter(Boolean);
 
@@ -2469,27 +2590,41 @@ function samplePlayers(players, count) {
 
 function buildSnoopAssignments(alivePlayers) {
   const assignments = {};
+  const primaryTargets = {};
   const candidates = alivePlayers.filter(player => player.role !== 'mafia');
 
   candidates.forEach(player => {
     const plan = state.nightPlans[player.id];
+
+    // A detective shadowing one person (night stance) is a dedicated pod-snoop
+    // regardless of their evening action.
+    const stance = state.detectiveStances?.[player.id];
+    if (player.role === 'detective' && stance?.id === 'shadow_target' && stance.target) {
+      assignments[player.id] = [stance.target];
+      primaryTargets[player.id] = stance.target;
+      return;
+    }
+
     if (!plan?.action) return;
     const location = getLocationById(plan.location);
     const isSnoopZone = Boolean(location?.isSnoopZone || location?.nodeType === 'investigation');
     const isSnooper = plan.action.kind === 'snoop' || (isSnoopZone && plan.action.kind === 'linger');
     if (!isSnooper) return;
 
-    const sampleSize = player.role === 'detective' ? 5 : 3;
-    const pool = alivePlayers.filter(candidate => candidate.id !== player.id);
-    const targetIds = samplePlayers(pool, sampleSize).map(candidate => candidate.id);
-
-    if (plan.actionTarget && !targetIds.includes(plan.actionTarget)) {
-      targetIds[0] = plan.actionTarget;
+    // Targeted snoop = dedicated watch on ONE person (the whole point of it).
+    if (plan.action.requiresTarget && plan.actionTarget) {
+      assignments[player.id] = [plan.actionTarget];
+      primaryTargets[player.id] = plan.actionTarget;
+      return;
     }
 
-    assignments[player.id] = targetIds;
+    // Route snooping spreads attention across a few random people.
+    const sampleSize = player.role === 'detective' ? 5 : 3;
+    const pool = alivePlayers.filter(candidate => candidate.id !== player.id);
+    assignments[player.id] = samplePlayers(pool, sampleSize).map(candidate => candidate.id);
   });
 
+  state.snoopPrimaryTargets = primaryTargets;
   return assignments;
 }
 
@@ -2546,14 +2681,27 @@ function prepareNightContext() {
       state.mafiaBriefing[mafiaPlayer.id] = [];
 
       state.mafiaSnooperIntel[mafiaPlayer.id] = {};
+      const mafiaPlan = state.nightPlans[mafiaPlayer.id];
+      const mafiaNode = mafiaPlan ? resolveNodeBaseId(getPlanNodeId(mafiaPlan, mafiaPlayer)) : null;
       Object.entries(state.snoopersByTarget).forEach(([targetId, snooperIds]) => {
+        // Mafia only notice snoopers around rooms they actually pass near:
+        // detection is gated on this mafia member being within one step of the
+        // watched person's location ("if the mafia is anywhere near the pods").
+        const watchedPlayer = alivePlayers.find(player => player.id === targetId);
+        const watchedPlan = watchedPlayer ? state.nightPlans[watchedPlayer.id] : null;
+        const watchedNode = watchedPlan ? resolveNodeBaseId(getPlanNodeId(watchedPlan, watchedPlayer)) : null;
+        const mafiaIsNear = Boolean(
+          mafiaNode && watchedNode && getGraphDistance(mafiaNode, watchedNode) <= 1
+        ) || watchedPlayer?.role === 'mafia';
+        if (!mafiaIsNear) return;
+
         const seen = snooperIds
           .map(id => alivePlayers.find(player => player.id === id))
           .filter(Boolean)
           .filter(snooper => snooper.role !== 'mafia')
           .filter(snooper => {
-            const detectChance = snooper.role === 'detective' ? 0.35 : 0.72;
-            return Math.random() < detectChance;
+            const podSnoop = state.snoopPrimaryTargets?.[snooper.id] === targetId;
+            return Math.random() < getSnooperDetectionChance(snooper, { podSnoop });
           })
           .map(snooper => snooper.name);
 
@@ -2576,12 +2724,85 @@ function prepareNightContext() {
     });
 }
 
+// Intel lines carry the probability they are true; the renderer shows the tier
+// and the generation code uses the SAME number, so labels are honest.
+function makeIntelItem(text, confidence) {
+  return { text: String(text || ''), confidence: clamp01(confidence) };
+}
+
+// Tolerate both shapes: new {text, confidence} items and legacy plain strings
+// (realtime peers may briefly run different versions).
+function intelItemText(item) {
+  if (!item) return '';
+  return typeof item === 'string' ? item : String(item.text || '');
+}
+
+function intelItemConfidence(item) {
+  if (!item || typeof item === 'string') return null;
+  return Number.isFinite(item.confidence) ? clamp01(item.confidence) : null;
+}
+
+// Pick a reported name with tier-honest accuracy: returns the true name with
+// probability `confidence`, otherwise a random other living player's name.
+function reportNameWithConfidence(truePlayer, confidence, alivePlayers, excludeIds = []) {
+  if (!truePlayer) return null;
+  if (Math.random() < confidence) return truePlayer.name;
+  const decoys = alivePlayers.filter(p => p.id !== truePlayer.id && !excludeIds.includes(p.id));
+  const decoy = decoys[Math.floor(Math.random() * decoys.length)];
+  return (decoy || truePlayer).name;
+}
+
+// Resolve what happens when the mafia reach the victim's door. The victim's
+// evening choice finally matters mechanically (and exactly as described):
+//  - locked: break-in can fail outright (loud either way); if they get in, the
+//    victim is trapped (harder save).
+//  - unlocked: silent entry, but the victim keeps an exit route — a real
+//    escape chance, better when someone alert is close enough to stir.
+//  - porch_watch: no quiet approach; big witness boost.
+function resolveBedroomDefense(targetPlayer, targetPlan, alivePlayers) {
+  if (!targetPlayer || !targetPlan?.action) {
+    return { outcome: 'proceed', noiseDelta: 0, victimLocked: false };
+  }
+  const actionId = targetPlan.action.id;
+
+  if (actionId === 'sleep_lock') {
+    if (Math.random() < 0.3) {
+      return { outcome: 'blocked', noiseDelta: 0.25, victimLocked: true };
+    }
+    return { outcome: 'proceed', noiseDelta: 0.25, victimLocked: true };
+  }
+
+  if (actionId === 'sleep_unlocked') {
+    const targetNode = resolveNodeBaseId(getPlanNodeId(targetPlan, targetPlayer));
+    const alertNeighbor = alivePlayers.some(candidate => {
+      if (candidate.id === targetPlayer.id || candidate.role === 'mafia') return false;
+      const plan = state.nightPlans[candidate.id];
+      if (!plan) return false;
+      const node = resolveNodeBaseId(getPlanNodeId(plan, candidate));
+      if (getGraphDistance(targetNode, node) > 1) return false;
+      const awareness = getNightAwarenessChoice(candidate.id);
+      return awareness.id === 'active_watch' || plan.action?.kind === 'linger';
+    });
+    const escapeChance = clamp01(0.22 + (alertNeighbor ? 0.15 : 0));
+    if (Math.random() < escapeChance) {
+      return { outcome: 'escaped', noiseDelta: -0.12, victimLocked: false };
+    }
+    return { outcome: 'proceed', noiseDelta: -0.12, victimLocked: false };
+  }
+
+  if (actionId === 'porch_watch') {
+    return { outcome: 'proceed', noiseDelta: 0.2, victimLocked: false };
+  }
+
+  return { outcome: 'proceed', noiseDelta: 0, victimLocked: false };
+}
+
 function getIntelFallback(player) {
   const base = player.role === 'detective'
     ? 'Inconclusive: your route was quiet, but your notes may matter later.'
     : 'Inconclusive: no clear evidence from your position tonight.';
   return {
-    heard: base,
+    heard: makeIntelItem(base, 0.3),
     saw: null,
     nearby: null,
     tracked: null,
@@ -2999,9 +3220,15 @@ function beginNightPhase() {
   state.selectedTarget = null;
   state.selectedKillMethod = null;
   state.selectedAwareness = null;
+  state.selectedStance = null;
+  state.selectedStanceTarget = null;
   state.selectedSave = null;
   state.mafiaKillMethods = {};
   state.nightAwareness = {};
+  state.detectiveStances = {};
+  state.snoopPrimaryTargets = {};
+  state.doctorSave = null;
+  state.nightDefenseOutcome = null;
   state.nightAttackMethod = null;
   state.narrative = buildNarration('night');
   addNarrationLog(state.narrative, 'night');
@@ -3064,8 +3291,17 @@ function startGame() {
   state.narrative = buildNarration('intro');
   state.currentPlayerIndex = 0;
   state.showRole = false;
+  // First game on this device: walk through the features once.
+  try {
+    if (!localStorage.getItem('mafia_tutorial_done')) state.tutorialStep = 0;
+  } catch (error) {
+    // localStorage unavailable; skip the tutorial gate
+  }
   state.nightPlans = {};
   state.snoopAssignments = {};
+  state.snoopPrimaryTargets = {};
+  state.detectiveStances = {};
+  state.nightDefenseOutcome = null;
   state.nightAttackCounts = {};
   state.nightAttackMethod = null;
   state.mafiaSnooperIntel = {};
@@ -3092,6 +3328,9 @@ function startGame() {
   state.selectedMapFloor = null;
   state.nightPlans = {};
   state.snoopAssignments = {};
+  state.snoopPrimaryTargets = {};
+  state.detectiveStances = {};
+  state.nightDefenseOutcome = null;
   state.snoopersByTarget = {};
   state.mafiaSnooperIntel = {};
   state.mafiaBriefing = {};
@@ -3185,16 +3424,48 @@ function botMakeDecisions(phase) {
         const pick = randomChoice(NIGHT_AWARENESS_OPTIONS) || NIGHT_AWARENESS_OPTIONS[1];
         state.nightAwareness[bot.id] = pick.id;
       });
-  }
 
-  if (phase === 'morning_doctor') {
-    const doctorBot = aliveBots.find(b => b.role === 'doctor');
-    if (doctorBot) {
-      const preferred = state.nightTarget ? alivePlayers.find(player => player.id === state.nightTarget) : null;
-      const fallback = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-      const choice = preferred && Math.random() > 0.35 ? preferred : fallback;
-      state.doctorSave = choice?.id || null;
-    }
+    // Bot doctor chooses who to protect as their night stance (no separate
+    // morning turn anymore). Without knowing the target, prefer protecting
+    // players whose plans look the most exposed.
+    aliveBots
+      .filter(bot => bot.role === 'doctor')
+      .forEach(bot => {
+        if (state.doctorSave) return;
+        const candidates = alivePlayers.filter(player => player.id !== bot.id);
+        const ranked = [...candidates].sort((a, b) => {
+          const ea = getPlanExposure(a, state.nightPlans[a.id]);
+          const eb = getPlanExposure(b, state.nightPlans[b.id]);
+          return eb - ea;
+        });
+        const pick = Math.random() < 0.6 ? ranked[0] : randomChoice(candidates);
+        state.doctorSave = pick?.id || null;
+      });
+
+    // Bot detective chooses a night stance; shadowing one person is their
+    // strongest play, so they favor it.
+    aliveBots
+      .filter(bot => bot.role === 'detective')
+      .forEach(bot => {
+        if (state.detectiveStances[bot.id]) return;
+        const roll = Math.random();
+        if (roll < 0.5) {
+          const targets = alivePlayers.filter(player => player.id !== bot.id);
+          const target = randomChoice(targets);
+          if (target) {
+            state.detectiveStances[bot.id] = { id: 'shadow_target', target: target.id };
+            state.nightAwareness[bot.id] = 'active_watch';
+            return;
+          }
+        }
+        if (roll < 0.8) {
+          state.detectiveStances[bot.id] = { id: 'sweep_routes', target: null };
+          state.nightAwareness[bot.id] = 'listen_posts';
+        } else {
+          state.detectiveStances[bot.id] = { id: 'lay_low', target: null };
+          state.nightAwareness[bot.id] = 'low_profile';
+        }
+      });
   }
 
   if (phase === 'vote') {
@@ -3258,55 +3529,141 @@ function processNight() {
   const targetPlayer = alivePlayers.find(player => player.id === targetId);
   const targetPlan = targetPlayer ? state.nightPlans[targetPlayer.id] : null;
   const targetNode = targetPlan ? resolveNodeBaseId(getPlanNodeId(targetPlan, targetPlayer)) : null;
+
+  // The victim's evening choice (lock / unlocked exit / porch) shapes the attack.
+  const defense = resolveBedroomDefense(targetPlayer, targetPlan, alivePlayers);
+  state.nightDefenseOutcome = targetId ? { ...defense, targetId } : null;
+  const attackHappens = Boolean(targetId) && defense.outcome === 'proceed';
+
+  // The mafia members who actually voted for the resolved target — sightings
+  // name THESE people (never a random uninvolved mafia), so confidence labels
+  // stay mechanically honest.
+  const attackers = alivePlayers.filter(player =>
+    player.role === 'mafia' && state.mafiaVotes[player.id] === targetId
+  );
+  const pickAttacker = () => attackers[Math.floor(Math.random() * attackers.length)] || null;
+
   const newIntel = {};
 
   alivePlayers.forEach(player => {
     const plan = state.nightPlans[player.id];
+    if (player.role === 'mafia') return;
     if (!plan) {
-      if (player.role !== 'mafia') newIntel[player.id] = getIntelFallback(player);
+      newIntel[player.id] = getIntelFallback(player);
       return;
     }
-
-    if (player.role === 'mafia') return;
 
     const playerNode = resolveNodeBaseId(getPlanNodeId(plan, player));
     const awarenessChoice = getNightAwarenessChoice(player.id);
     const awarenessBoost = Number(awarenessChoice?.exposureMod || 0);
     const effectiveIntel = clamp01(getPlanIntelChance(player, plan) + awarenessBoost);
     const intel = getIntelFallback(player);
-    const noiseWeight = getAdjustedDisturbance(resolvedMethod);
+    const noiseWeight = clamp01(getAdjustedDisturbance(resolvedMethod) + (targetId ? defense.noiseDelta : 0));
     const distanceToAttack = targetNode ? getGraphDistance(playerNode, targetNode) : Infinity;
     const witnessedFromNearby = targetId && player.id !== targetId && distanceToAttack <= 1;
 
+    // Channel 1 — you were physically near the attack (or the failed break-in).
     if (witnessedFromNearby) {
-      intel.heard = `You were nearby during the attack and heard ${resolvedMethod.evidenceHint}.`;
-      const witnessChance = clamp01((player.role === 'detective' ? 0.62 : 0.34) + (noiseWeight * 0.42) + (awarenessBoost * 0.45));
-      if (Math.random() < witnessChance) {
-        const killers = alivePlayers.filter(candidate => candidate.role === 'mafia');
-        const killer = killers[Math.floor(Math.random() * killers.length)];
-        intel.saw = player.role === 'detective'
-          ? `${killer?.name} fled from ${targetPlayer?.name}'s area after the strike.`
-          : `You saw a fleeing attacker near ${targetPlayer?.name}'s area.`;
-      }
-      intel.cause = `Likely method: ${resolvedMethod.name}.`;
-    }
-
-    const trackedTargets = state.snoopAssignments[player.id] || [];
-    if (targetId && trackedTargets.includes(targetId)) {
-      if (Math.random() < effectiveIntel) {
-        intel.heard = `Your snoop route passed close to ${targetPlayer?.name}'s room.`;
-        if (player.role === 'detective' || Math.random() < effectiveIntel * 0.8) {
-          const killers = alivePlayers.filter(candidate => candidate.role === 'mafia');
-          const killer = killers[Math.floor(Math.random() * killers.length)];
-          intel.saw = `${killer?.name} was seen moving near ${targetPlayer?.name}'s room.`;
-        } else {
-          intel.saw = `You saw movement around ${targetPlayer?.name}'s room but no clear identity.`;
-        }
+      if (defense.outcome === 'blocked') {
+        intel.heard = makeIntelItem('In the night you heard someone forcing a lock close by — then hurried footsteps leaving.', INTEL_RELIABILITY.confirmed);
       } else {
-        intel.heard = `You tracked ${targetPlayer?.name}'s room but found no clear proof.`;
+        intel.heard = makeIntelItem(`You were nearby during the attack and heard ${resolvedMethod.evidenceHint}.`, INTEL_RELIABILITY.confirmed);
+        intel.cause = makeIntelItem(`Likely method: ${resolvedMethod.name}.`, INTEL_RELIABILITY.likely);
+      }
+      const witnessChance = applyWitnessMods(clamp01(
+        (player.role === 'detective' ? 0.62 : 0.34) + (noiseWeight * 0.42) + (awarenessBoost * 0.45)
+      ));
+      if (attackers.length > 0 && Math.random() < witnessChance) {
+        const attacker = pickAttacker();
+        if (player.role === 'detective') {
+          const name = reportNameWithConfidence(attacker, INTEL_RELIABILITY.confirmed, alivePlayers, [player.id, targetId]);
+          intel.saw = makeIntelItem(`${name} fled from ${targetPlayer?.name}'s area right after the strike.`, INTEL_RELIABILITY.confirmed);
+        } else {
+          const name = reportNameWithConfidence(attacker, INTEL_RELIABILITY.likely, alivePlayers, [player.id, targetId]);
+          intel.saw = makeIntelItem(`You glimpsed a fleeing figure near ${targetPlayer?.name}'s area — it looked like ${name}.`, INTEL_RELIABILITY.likely);
+        }
       }
     }
 
+    // Channel 2 — dedicated pod-snoop: near-certain truth about ONE person.
+    const primaryTargetId = state.snoopPrimaryTargets?.[player.id] || null;
+    if (primaryTargetId) {
+      const watched = alivePlayers.find(candidate => candidate.id === primaryTargetId);
+      if (watched) {
+        const baseAccuracy = player.role === 'detective' ? 0.97 : 0.9;
+        const accuracy = Math.min(0.99, baseAccuracy * getGameplayMod('podSnoopAccuracy'));
+        if (Math.random() < accuracy) {
+          const watchedPlan = state.nightPlans[watched.id];
+          const watchedLocation = watchedPlan ? (getLocationById(watchedPlan.location)?.name || 'their spot') : 'their room';
+          const isAttacker = attackers.some(a => a.id === watched.id);
+          // The killer physically went out regardless of how the attack ended
+          // (killed / blocked / victim escaped) — the watcher sees the movement.
+          if (isAttacker && targetId && defense.outcome === 'blocked') {
+            intel.tracked = makeIntelItem(`${watched.name} left in the dark, struggled with a door somewhere near ${targetPlayer?.name}'s room, and returned in a hurry.`, INTEL_RELIABILITY.confirmed);
+          } else if (isAttacker && targetId) {
+            intel.tracked = makeIntelItem(`${watched.name} slipped out mid-night toward ${targetPlayer?.name}'s area — and came back moving quietly.`, INTEL_RELIABILITY.confirmed);
+          } else if (watched.id === targetId) {
+            intel.tracked = makeIntelItem(
+              defense.outcome === 'escaped'
+                ? `${watched.name} was attacked in the night — you watched them bolt through their exit route.`
+                : `${watched.name}'s room was entered during the night by someone else.`,
+              INTEL_RELIABILITY.confirmed
+            );
+          } else if (watched.role === 'mafia') {
+            intel.tracked = makeIntelItem(`${watched.name} drifted along the back routes at odd hours instead of staying put.`, INTEL_RELIABILITY.confirmed);
+          } else {
+            intel.tracked = makeIntelItem(`${watched.name} stayed at ${watchedLocation} all night. Their story should check out.`, INTEL_RELIABILITY.confirmed);
+          }
+        } else {
+          intel.tracked = makeIntelItem(`You lost sight of ${watched.name} for long stretches; nothing reliable.`, INTEL_RELIABILITY.uncertain);
+        }
+      }
+    } else {
+      // Route snooping: pays out if anyone you tracked was the victim.
+      const trackedTargets = state.snoopAssignments[player.id] || [];
+      if (targetId && trackedTargets.includes(targetId)) {
+        if (Math.random() < effectiveIntel) {
+          intel.heard = makeIntelItem(`Your snoop route passed close to ${targetPlayer?.name}'s room.`, INTEL_RELIABILITY.confirmed);
+          if (attackers.length > 0) {
+            const attacker = pickAttacker();
+            if (player.role === 'detective') {
+              const name = reportNameWithConfidence(attacker, INTEL_RELIABILITY.likely, alivePlayers, [player.id, targetId]);
+              intel.saw = makeIntelItem(`${name} was moving near ${targetPlayer?.name}'s room in the dark.`, INTEL_RELIABILITY.likely);
+            } else {
+              const name = reportNameWithConfidence(attacker, INTEL_RELIABILITY.uncertain, alivePlayers, [player.id, targetId]);
+              intel.saw = makeIntelItem(`You half-saw someone near ${targetPlayer?.name}'s room — possibly ${name}, but you can't be sure.`, INTEL_RELIABILITY.uncertain);
+            }
+          }
+        } else {
+          intel.heard = makeIntelItem(`You tracked ${targetPlayer?.name}'s room but found no clear proof.`, INTEL_RELIABILITY.uncertain);
+        }
+      }
+    }
+
+    // Channel 3 — watchful players can catch attacker MOVEMENT even away from
+    // the kill itself (killers cross the map; alert people notice).
+    if (!intel.saw && attackHappensOrBlocked(defense, targetId) && attackers.length > 0) {
+      const watchful = awarenessChoice.id === 'active_watch'
+        || plan.action?.kind === 'linger'
+        || plan.action?.id === 'porch_watch';
+      if (watchful) {
+        const sawMovement = attackers.some(attacker => {
+          const attackerPlan = state.nightPlans[attacker.id];
+          const attackerNode = attackerPlan ? resolveNodeBaseId(getPlanNodeId(attackerPlan, attacker)) : null;
+          const nearRouteStart = attackerNode && getGraphDistance(playerNode, attackerNode) <= 1;
+          const nearRouteEnd = targetNode && getGraphDistance(playerNode, targetNode) <= 1;
+          return nearRouteStart || nearRouteEnd;
+        });
+        const movementChance = applyWitnessMods(clamp01(0.3 + awarenessBoost + (player.role === 'detective' ? 0.15 : 0)));
+        if (sawMovement && Math.random() < movementChance) {
+          const attacker = pickAttacker();
+          const name = reportNameWithConfidence(attacker, INTEL_RELIABILITY.likely, alivePlayers, [player.id, targetId]);
+          intel.saw = makeIntelItem(`Late in the night you noticed ${name} crossing toward ${targetPlayer ? `${targetPlayer.name}'s area` : 'the private rooms'}.`, INTEL_RELIABILITY.likely);
+        }
+      }
+    }
+
+    // Ground truth: who shared your area (always reliable).
     const othersNearby = alivePlayers.filter(candidate => {
       if (candidate.id === player.id) return false;
       const candidatePlan = state.nightPlans[candidate.id];
@@ -3314,29 +3671,45 @@ function processNight() {
       const candidateNode = resolveNodeBaseId(getPlanNodeId(candidatePlan, candidate));
       return getGraphDistance(playerNode, candidateNode) <= 1;
     });
+    intel.nearby = othersNearby.length > 0
+      ? makeIntelItem(`Nearby: ${othersNearby.map(candidate => candidate.name).join(', ')}`, INTEL_RELIABILITY.confirmed)
+      : makeIntelItem('Nearby: no one in your immediate area.', INTEL_RELIABILITY.confirmed);
+    intel.awareness = makeIntelItem(`Night stance: ${describeNightStance(player)}.`, 1);
 
-    if (othersNearby.length > 0) {
-      intel.nearby = `Nearby: ${othersNearby.map(candidate => candidate.name).join(', ')}`;
-    } else if (!intel.nearby) {
-      intel.nearby = 'Nearby: no one in your immediate area.';
-    }
-    intel.awareness = `Night stance: ${awarenessChoice.name}.`;
-
-    if (plan.action?.requiresTarget && plan.actionTarget) {
-      const target = alivePlayers.find(candidate => candidate.id === plan.actionTarget);
-      if (target) {
-        intel.tracked = `You focused on ${target.name}'s room tonight.`;
+    // Personal outcome lines for the victim's own night.
+    if (player.id === targetId) {
+      if (defense.outcome === 'blocked') {
+        intel.heard = makeIntelItem('Someone tried to force YOUR lock in the night. The bolt held — but they were at your door.', INTEL_RELIABILITY.confirmed);
+      } else if (defense.outcome === 'escaped') {
+        const attacker = pickAttacker();
+        const name = reportNameWithConfidence(attacker, INTEL_RELIABILITY.uncertain, alivePlayers, [player.id]);
+        intel.heard = makeIntelItem(`Someone slipped into your room — you bolted through your exit route. In the scramble you think you saw ${name}.`, INTEL_RELIABILITY.uncertain);
       }
-    }
-
-    if (plan.action?.id === 'sleep_lock' && !intel.saw) {
-      intel.heard = 'You slept behind a locked door; nothing conclusive reached you.';
-    } else if (plan.action?.id === 'sleep_unlocked' && !intel.saw && !intel.tracked) {
-      intel.heard = 'You slept without locking up. Inconclusive sounds drifted in and out.';
+    } else if (plan.action?.id === 'sleep_lock' && !intel.saw && !intel.tracked) {
+      intel.heard = makeIntelItem('You slept behind a locked door; little reached you.', INTEL_RELIABILITY.confirmed);
     }
 
     newIntel[player.id] = intel;
   });
+
+  // Mafia false leads: a planted decoy reaches players near the planting site,
+  // honestly labeled uncertain (it may well be wrong — that is the point).
+  alivePlayers
+    .filter(player => player.role === 'mafia' && state.nightPlans[player.id]?.action?.id === 'false_lead')
+    .forEach(planter => {
+      const planterNode = resolveNodeBaseId(getPlanNodeId(state.nightPlans[planter.id], planter));
+      const innocents = alivePlayers.filter(candidate => candidate.role !== 'mafia' && candidate.id !== targetId);
+      const framed = innocents[Math.floor(Math.random() * innocents.length)];
+      if (!framed || !planterNode) return;
+      alivePlayers.forEach(receiver => {
+        if (receiver.role === 'mafia' || !newIntel[receiver.id]) return;
+        const receiverPlan = state.nightPlans[receiver.id];
+        const receiverNode = receiverPlan ? resolveNodeBaseId(getPlanNodeId(receiverPlan, receiver)) : null;
+        if (!receiverNode || getGraphDistance(receiverNode, planterNode) > 1) return;
+        if (newIntel[receiver.id].saw) return;
+        newIntel[receiver.id].saw = makeIntelItem(`Scuffed tracks near ${getLocationById(state.nightPlans[planter.id].location)?.name || 'your area'} suggest ${framed.name} passed through late.`, INTEL_RELIABILITY.uncertain);
+      });
+    });
 
   getAlivePlayers()
     .filter(player => player.role !== 'mafia')
@@ -3345,24 +3718,35 @@ function processNight() {
     });
 
   state.intelResults = newIntel;
-  state.narrative = buildNarration('morning', { attackHappened: Boolean(targetId), saved: false });
-  addNarrationLog(state.narrative, shouldRunDoctorPhase() ? 'morning_doctor' : 'announcement');
+  state.narrative = buildNarration('morning', { attackHappened: attackHappens, saved: false });
+  addNarrationLog(state.narrative, 'announcement');
   state.showRole = false;
   state.selectedSave = null;
   state.selectedAwareness = null;
-  if (shouldRunDoctorPhase()) {
-    state.gamePhase = 'morning_doctor';
-    primeNarratorTurn('morning_doctor');
-    queueNarratorChatPrompt('morning_doctor');
-    withBotDelay(() => {
-      botMakeDecisions('morning_doctor');
-      render();
-    }, Math.max(700, state.botDelayMs));
-    return;
-  }
+  // The doctor already chose who to protect during their night stance turn, so
+  // the morning resolves immediately — no doctor-only phase to leak identity.
   withBotDelay(() => {
     processMorning();
   }, Math.max(700, state.botDelayMs));
+}
+
+function attackHappensOrBlocked(defense, targetId) {
+  return Boolean(targetId) && (defense.outcome === 'proceed' || defense.outcome === 'blocked');
+}
+
+// Human-readable description of what this player chose to do at night.
+function describeNightStance(player) {
+  if (player.role === 'detective') {
+    const stance = state.detectiveStances?.[player.id];
+    if (stance) {
+      const option = DETECTIVE_STANCE_OPTIONS.find(item => item.id === stance.id);
+      return option ? option.name.replace(/^[^ ]+ /, '') : 'Sweep the routes';
+    }
+  }
+  if (player.role === 'doctor' && state.doctorSave) {
+    return 'Kept watch, ready to help';
+  }
+  return getNightAwarenessChoice(player.id).name;
 }
 
 // -----------------------------------------------------------------------------
@@ -3373,36 +3757,20 @@ function processMorning() {
   const allPlayers = getAllPlayers();
   const target = allPlayers.find(p => p.id === state.nightTarget);
   const method = getKillMethodById(state.nightAttackMethod || KILL_METHODS[0].id);
+  const defense = state.nightDefenseOutcome || { outcome: 'proceed', victimLocked: false };
   let deathMessage = '';
   let savedByDoctor = false;
 
   const attackCount = target ? (state.nightAttackCounts[target.id] || 1) : 0;
-  const doctorTriedSave = Boolean(target && state.doctorSave && state.doctorSave === target.id);
-  let saveChance = 0;
-  if (doctorTriedSave) {
-    saveChance = getDoctorSaveChance(method, attackCount);
-    savedByDoctor = Math.random() < saveChance;
-  }
 
-  if (target && !savedByDoctor) {
-    if (target.isBot) {
-      state.bots = state.bots.map(b => b.id === target.id ? { ...b, alive: false } : b);
-    } else {
-      state.players = state.players.map(p => p.id === target.id ? { ...p, alive: false } : p);
-    }
-    SoundEffects.playDeath();
-    deathMessage = `${target.name} was found dead.\n\nCause of death: ${method.deathLabel} (${method.name}).\nDisturbance level: ${Math.round(getAdjustedDisturbance(method) * 100)}%.\n\nThey were the ${getRoleDisplayName(target.role)}.`;
-    state.finalDeath = {
-      type: 'night',
-      victim: target.name,
-      role: getRoleDisplayName(target.role),
-      saved: false,
-      method: method.name
-    };
-    setDeathAnimation(target.name, getRoleDisplayName(target.role), 'night');
-  } else if (target && savedByDoctor) {
-    const methodLine = `Attack method: ${method.name}.`;
-    deathMessage = `${target.name} was attacked but survived.\n\n${methodLine}\nDoctor save chance this morning: ${Math.round(saveChance * 100)}%.`;
+  if (target && defense.outcome === 'blocked') {
+    // The locked door held: the break-in failed outright.
+    deathMessage = 'A door was forced in the night — but the bolt held.\n\nNo one died. Someone in this room walked away from a failed break-in.';
+    state.finalDeath = { type: 'night', victim: null, role: null, saved: false, method: null };
+    clearDeathAnimation();
+  } else if (target && defense.outcome === 'escaped') {
+    // The unlocked exit route paid off: the victim fled the attack.
+    deathMessage = `${target.name} was attacked in the night — and escaped through their exit route.\n\nAttack method: ${method.name}. They are shaken, but alive.`;
     state.finalDeath = {
       type: 'night',
       victim: target.name,
@@ -3412,9 +3780,46 @@ function processMorning() {
     };
     clearDeathAnimation();
   } else {
-    deathMessage = 'The night passed peacefully.';
-    state.finalDeath = { type: 'night', victim: null, role: null, saved: false, method: null };
-    clearDeathAnimation();
+    const doctorTriedSave = Boolean(target && state.doctorSave && state.doctorSave === target.id);
+    let saveChance = 0;
+    if (doctorTriedSave) {
+      saveChance = getDoctorSaveChance(method, attackCount, { victimLocked: Boolean(defense.victimLocked) });
+      savedByDoctor = Math.random() < saveChance;
+    }
+
+    if (target && !savedByDoctor) {
+      if (target.isBot) {
+        state.bots = state.bots.map(b => b.id === target.id ? { ...b, alive: false } : b);
+      } else {
+        state.players = state.players.map(p => p.id === target.id ? { ...p, alive: false } : p);
+      }
+      SoundEffects.playDeath();
+      const trappedLine = defense.victimLocked ? '\nTheir own locked door left them cornered.' : '';
+      deathMessage = `${target.name} was found dead.\n\nCause of death: ${method.deathLabel} (${method.name}).\nDisturbance level: ${Math.round(getAdjustedDisturbance(method) * 100)}%.${trappedLine}\n\nThey were the ${getRoleDisplayName(target.role)}.`;
+      state.finalDeath = {
+        type: 'night',
+        victim: target.name,
+        role: getRoleDisplayName(target.role),
+        saved: false,
+        method: method.name
+      };
+      setDeathAnimation(target.name, getRoleDisplayName(target.role), 'night');
+    } else if (target && savedByDoctor) {
+      const methodLine = `Attack method: ${method.name}.`;
+      deathMessage = `${target.name} was attacked but survived.\n\n${methodLine}\nSomeone watched over them tonight — stabilization chance was ${Math.round(saveChance * 100)}%.`;
+      state.finalDeath = {
+        type: 'night',
+        victim: target.name,
+        role: getRoleDisplayName(target.role),
+        saved: true,
+        method: method.name
+      };
+      clearDeathAnimation();
+    } else {
+      deathMessage = 'The night passed peacefully.';
+      state.finalDeath = { type: 'night', victim: null, role: null, saved: false, method: null };
+      clearDeathAnimation();
+    }
   }
   addNarrationLog(deathMessage, 'announcement');
 
@@ -3424,6 +3829,9 @@ function processMorning() {
   state.mafiaKillMethods = {};
   state.nightAttackCounts = {};
   state.doctorSave = null;
+  state.nightDefenseOutcome = null;
+  state.detectiveStances = {};
+  state.snoopPrimaryTargets = {};
   state.pendingWin = evaluateWinCondition();
   state.announcement = deathMessage;
   state.gamePhase = 'announcement';
@@ -3512,6 +3920,9 @@ function processVote() {
   state.votes = {};
   state.nightPlans = {};
   state.snoopAssignments = {};
+  state.snoopPrimaryTargets = {};
+  state.detectiveStances = {};
+  state.nightDefenseOutcome = null;
   state.snoopersByTarget = {};
   state.mafiaSnooperIntel = {};
   state.mafiaBriefing = {};
@@ -3618,14 +4029,13 @@ function hasDoctorAlive() {
   return getAlivePlayers().some(player => player.role === 'doctor');
 }
 
-function shouldRunDoctorPhase() {
-  return hasDoctorAlive() && Boolean(state.nightTarget);
-}
-
-function getDoctorSaveChance(method, attackCount = 1) {
+function getDoctorSaveChance(method, attackCount = 1, { victimLocked = false } = {}) {
   const attackerPenalty = Math.max(0, attackCount - 1) * 0.23;
   const methodPenalty = getAdjustedCureDifficulty(method) * 0.3;
-  return clamp01(0.74 - methodPenalty - attackerPenalty);
+  // A locked room that was breached leaves the victim cornered: harder to reach
+  // and stabilize in time (the flip side of the lock's break-in protection).
+  const trappedPenalty = victimLocked ? 0.08 : 0;
+  return clamp01((0.74 - methodPenalty - attackerPenalty - trappedPenalty) * getGameplayMod('save'));
 }
 
 function getNightAwarenessById(id) {
@@ -3657,17 +4067,29 @@ function advanceNightActor() {
   render();
 }
 
-function ensureDoctorSaveChoice() {
-  if (!hasDoctorAlive()) return;
-  if (state.doctorSave) return;
-  const fallback = getAlivePlayers().find(player => player.id === state.nightTarget) || getAlivePlayers()[0];
-  state.doctorSave = fallback?.id || null;
+// The doctor's protect choice is made during their NIGHT stance turn (so no
+// separate doctor-only phase can leak who the doctor is).
+function confirmDoctorProtectForCurrent() {
+  const current = getCurrentPlayer();
+  if (!current || current.role !== 'doctor') return;
+  state.doctorSave = state.selectedSave || null;
+  // Doctors keep their head down while standing ready.
+  state.nightAwareness[current.id] = 'low_profile';
+  state.selectedSave = null;
 }
 
-function completeDoctorPhase() {
-  ensureDoctorSaveChoice();
-  state.selectedSave = null;
-  processMorning();
+function confirmDetectiveStanceForCurrent() {
+  const current = getCurrentPlayer();
+  if (!current || current.role !== 'detective') return;
+  const option = DETECTIVE_STANCE_OPTIONS.find(item => item.id === state.selectedStance) || DETECTIVE_STANCE_OPTIONS[1];
+  const target = option.requiresTarget ? (state.selectedStanceTarget || null) : null;
+  state.detectiveStances[current.id] = { id: option.id, target };
+  // Stances map onto the shared awareness model so exposure math stays unified.
+  state.nightAwareness[current.id] = option.id === 'shadow_target'
+    ? 'active_watch'
+    : option.id === 'sweep_routes' ? 'listen_posts' : 'low_profile';
+  state.selectedStance = null;
+  state.selectedStanceTarget = null;
 }
 
 function normalizeCodeFromInput(raw) {
@@ -3799,6 +4221,13 @@ function renamePlayer(id, value) {
 function toggleMap() {
   const nextVisible = !state.showMap;
   state.showMap = nextVisible;
+  if (nextVisible) {
+    try {
+      localStorage.setItem('mafia_map_hint_seen', '1');
+    } catch (error) {
+      // ignore
+    }
+  }
   if (!nextVisible) {
     state.selectedMapFloor = null;
   } else {
@@ -4260,6 +4689,55 @@ window.setMapFloor = setMapFloor;
 window.showBigRoomCode = showBigRoomCode;
 window.hideBigRoomCode = hideBigRoomCode;
 
+// --- First-run tutorial (per-device UI state; never synced) ---
+const TUTORIAL_STEPS_TOTAL = 5;
+
+function markTutorialDone() {
+  try {
+    localStorage.setItem('mafia_tutorial_done', '1');
+  } catch (error) {
+    // ignore
+  }
+  state.tutorialStep = null;
+}
+
+window.tutorialNext = () => {
+  if (state.tutorialStep === null) return;
+  if (state.tutorialStep >= TUTORIAL_STEPS_TOTAL - 1) {
+    markTutorialDone();
+  } else {
+    state.tutorialStep += 1;
+  }
+  render();
+};
+
+window.tutorialBack = () => {
+  if (state.tutorialStep === null) return;
+  state.tutorialStep = Math.max(0, state.tutorialStep - 1);
+  render();
+};
+
+window.tutorialSkip = () => {
+  markTutorialDone();
+  render();
+};
+
+window.replayTutorial = () => {
+  state.showInstructions = false;
+  state.tutorialStep = 0;
+  render();
+};
+
+// One-time "check the map" pointer after the tutorial / at game start.
+window.dismissMapHint = () => {
+  try {
+    localStorage.setItem('mafia_map_hint_seen', '1');
+  } catch (error) {
+    // ignore
+  }
+  render();
+};
+
 window.addPlayerFromInput = (nameOverride = null, deviceIdOverride = null) => {
   const input = document.getElementById('newPlayerInput');
   const candidateName = typeof nameOverride === 'string'
@@ -4282,6 +4760,14 @@ window.selectPreset = (id) => {
   if (!canEditLobbySetup()) return;
   state.selectedPreset = ROLE_PRESETS.find(p => p.id === id) || ROLE_PRESETS[0];
   updateRoleConfig();
+  render();
+};
+
+// Gameplay presets are orthogonal to ratio presets: they change rule math, not
+// role counts, so both can be active at once.
+window.selectGameplayPreset = (id) => {
+  if (!canEditLobbySetup()) return;
+  state.selectedGameplayPreset = (GAMEPLAY_PRESETS.find(p => p.id === id) || GAMEPLAY_PRESETS[0]).id;
   render();
 };
 
@@ -4379,6 +4865,9 @@ window.newGame = () => {
   state.gamePhase = 'reveal';
   state.nightPlans = {};
   state.snoopAssignments = {};
+  state.snoopPrimaryTargets = {};
+  state.detectiveStances = {};
+  state.nightDefenseOutcome = null;
   state.snoopersByTarget = {};
   state.mafiaSnooperIntel = {};
   state.mafiaBriefing = {};
@@ -4540,13 +5029,30 @@ window.confirmMafiaTarget = () => {
   advanceNightActor();
 };
 
-window.skipDoctor = () => {
-  completeDoctorPhase();
+// Doctor night-stance turn: pick who to watch over tonight.
+window.confirmDoctorProtect = () => {
+  confirmDoctorProtectForCurrent();
+  advanceNightActor();
 };
 
-window.confirmDoctorSave = () => {
-  state.doctorSave = state.selectedSave;
-  completeDoctorPhase();
+// Detective night-stance turn.
+window.selectNightStance = (stanceId) => {
+  state.selectedStance = stanceId;
+  const option = DETECTIVE_STANCE_OPTIONS.find(item => item.id === stanceId);
+  if (!option?.requiresTarget) state.selectedStanceTarget = null;
+  render();
+};
+
+window.selectStanceTarget = (id) => {
+  state.selectedStanceTarget = id;
+  render();
+};
+
+window.confirmDetectiveStance = () => {
+  const option = DETECTIVE_STANCE_OPTIONS.find(item => item.id === state.selectedStance);
+  if (option?.requiresTarget && !state.selectedStanceTarget) return;
+  confirmDetectiveStanceForCurrent();
+  advanceNightActor();
 };
 
 window.afterAnnouncement = afterAnnouncement;
@@ -4713,7 +5219,11 @@ const REALTIME_FORWARD_ACTIONS = new Set([
   'continueNight',
   'confirmMafiaTarget',
   'selectSave',
-  'confirmDoctorSave',
+  'confirmDoctorProtect',
+  'selectNightStance',
+  'selectStanceTarget',
+  'confirmDetectiveStance',
+  'selectGameplayPreset',
   'completeNarratorTurn',
   'afterAnnouncement',
   'afterVoteAnnouncement',

@@ -70,6 +70,7 @@ async function clickLocatorIfVisible(locator) {
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
+  await context.addInitScript(() => { try { localStorage.setItem("mafia_tutorial_done", "1"); localStorage.setItem("mafia_map_hint_seen", "1"); } catch (e) {} });
   const page = await context.newPage();
   const errors = [];
 
@@ -156,12 +157,13 @@ async function clickLocatorIfVisible(locator) {
         break;
       }
 
+      if (await clickIfVisible(page, '.tutorial-card button:has-text("Skip")')) { await sleep(120); continue; }
+      if (await clickIfVisible(page, '.map-hint-callout button')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Continue to Player Turns")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Reveal My Role")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Got it!")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Plan My Night")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Open Night Console")')) { await sleep(120); continue; }
-      if (await clickIfVisible(page, 'button:has-text("Choose Who to Save")')) { await sleep(120); continue; }
       if (await clickIfVisible(page, 'button:has-text("Cast My Vote")')) { await sleep(120); continue; }
 
       await chooseFirstIfNoneSelected(page, '.location-grid', '.location-card');
@@ -173,7 +175,6 @@ async function clickLocatorIfVisible(locator) {
       if (await clickIfVisible(page, 'button:has-text("Confirm Plan")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("Confirm Night Strike")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("Confirm Night Stance")')) { await sleep(140); continue; }
-      if (await clickIfVisible(page, 'button:has-text("Confirm Save")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("Proceed to Voting")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("Submit Vote")')) { await sleep(140); continue; }
       if (await clickIfVisible(page, 'button:has-text("See Results")')) { await sleep(140); continue; }

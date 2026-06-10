@@ -547,3 +547,20 @@ Note:
 - `scripts/config.js` productionRelayUrl -> wss://mafia-relay-pycoder42.pycoder42.deno.net; pushed; GitHub Pages rebuilt.
 - Removed dead `valtown/` (relay handler now self-contained in `deno-deploy/relay.ts`); rewrote `deno-deploy/deploy.sh` for the new platform; org/app recorded in `deno-deploy/deno.jsonc`.
 - Verified the deployed relay over wss:// (health 200, host/join, presence, action forwarding) AND end-to-end on the LIVE github.io site: two browsers host+join+sync a game start through the relay over the internet (8/8 checks, 0 errors).
+
+## 2026-06-10 - 12-item gameplay/UX overhaul (night stances, intel, presets, join UX, map, tutorial)
+- Owner submitted 12 items ("check before assuming broken"). Audited each with file:line evidence (6 via parallel agents, 6 by direct reading), then implemented:
+  1. Gimkit-style joining: host's join-URL row now shows the auto-join fast link; duplicate Fast-Join card folded away; QR button + QR tile open a fullscreen projector view (giant code + 480px QR + link, light background).
+  2. Preset types split: Ratio presets (role counts) + new Gameplay presets (Standard / Sharp Eyes / Paranoid House / Deep Cover) wired through real rule math via getGameplayMod(); both shown in join read-only summary.
+  3. Information values: real per-action `info` stat (snoop .82 / linger .52 / routine .3 / hide .15 blended with location traffic); getPlanIntelChance consumes info, not exposure; 🔍 Info chips on every location/action card (incl. per-role detective bonus), ⚠️ Exposure relabeled.
+  4. Lock/exit mechanics + honest descriptions: resolveBedroomDefense — locked = ~30% break-in abort (loud either way; trapped −8% save if breached); unlocked = quiet entry but ~22-37% escape (alert neighbor helps); porch watch = no quiet approach. Descriptions state exactly these tradeoffs. Morning announces blocked/escaped outcomes.
+  5. Detective pod-snoop: targeted snoops are dedicated (no random dilution); shadowing one person yields near-certain truth about THAT person (97% det/90% other, incl. "slipped out toward victim" when they're a killer, regardless of attack outcome); detection proximity-gated (mafia within 1 of watched room; pod-snoop detection .55 det/.85 other).
+  6. Reliability labels: INTEL_RELIABILITY {confirmed .97, likely .78, uncertain .55} drives BOTH name-accuracy generation and the ✅/🟡/⚠️ chips; killer names now drawn from ACTUAL attackers; false_lead implemented (plants uncertain-tier decoys near the planting site).
+  7. Detective stealth verified real (.35 vs .72 seen; −18% exposure; +14% intel) and copy rewritten to the real numbers.
+  8. Night-stance redesign: EVENING = where you go; NIGHT = role-flavored stance turns — mafia strike console, detective shadow/sweep/lay-low, doctor picks who to protect AS their stance (morning_doctor phase deleted → no doctor identity leak), villagers awareness.
+  9. Discussion chat: prominent chat panel embedded in the discussion view (multi-device).
+  10. Map: node-type icons, exposure heat bars, "📍 you are here", legend, polished copy; one-time map pointer callout at game start.
+  11. Intel generation broadened (movement-watcher channel; victim personal outcomes; pod-snoop independent of victim) — "no one got intel" addressed at the root.
+  12. First-run 5-step tutorial overlay (localStorage-gated, skippable, replayable from Instructions).
+- Tests updated: sweep/matrix seed tutorial localStorage; stale doctor-phase clicks removed; matrix waits unchanged.
+- Validation: 12/12 deterministic mechanic checks; core-logic regression (bot votes/phase guard/night picks/win order); button sweep PASS; 10-run matrix 10/10 (4 solo + 3 passplay + 3 realtime). INSTRUCTIONS.md rewritten for new flow.

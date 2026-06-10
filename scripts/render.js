@@ -36,6 +36,26 @@ function renderThinkingDots() {
   return `<span class="thinking-dots"><span>.</span><span>.</span><span>.</span></span>`;
 }
 
+// Render one intel line with its honest reliability badge. Tolerates both the
+// new {text, confidence} items and legacy plain strings (realtime peers may
+// briefly run an older build).
+function renderIntelLine(icon, item, extraStyle = '') {
+  const text = intelItemText(item);
+  if (!text) return '';
+  const confidence = intelItemConfidence(item);
+  let badge = '';
+  if (confidence !== null && confidence < 1) {
+    if (confidence >= 0.9) {
+      badge = '<span class="reliability-chip reliability-confirmed">✅ confirmed</span>';
+    } else if (confidence >= 0.65) {
+      badge = `<span class="reliability-chip reliability-likely">🟡 likely (~${Math.round(confidence * 100)}%)</span>`;
+    } else {
+      badge = `<span class="reliability-chip reliability-uncertain">⚠️ uncertain (~${Math.round(confidence * 100)}%)</span>`;
+    }
+  }
+  return `<div class="intel-item" style="${extraStyle}">${icon} ${text} ${badge}</div>`;
+}
+
 function captureFocusedInputState() {
   const active = document.activeElement;
   if (!active || !active.id) return null;
@@ -429,13 +449,13 @@ function renderMultiLobby() {
                 <div class="input-row">
                   <input type="text" class="input" readonly value="${state.gameCode}"/>
                   <button class="copy-btn" id="copyRoomCodeBtn" onclick="copyRoomCode()">📋 Copy</button>
-                  <button class="btn btn-secondary btn-small" onclick="showBigRoomCode()">Show Large</button>
+                  <button class="btn btn-secondary btn-small" onclick="showBigRoomCode()">🔳 QR</button>
                 </div>
                 <div class="portal-copy-row">
-                  <label>Join portal URL</label>
+                  <label>Join link (opens straight into this room)</label>
                   <div class="input-row">
-                    <input type="text" class="input" readonly value="${joinPortal || 'Available after room service starts'}"/>
-                    <button class="copy-btn" id="copyPortalBtn" onclick="copyJoinPortal()">📋 Copy</button>
+                    <input type="text" class="input" readonly value="${shareJoinUrl || 'Available after room service starts'}"/>
+                    <button class="copy-btn" id="copyPortalBtn" onclick="copyLink('copyPortalBtn')">📋 Copy</button>
                   </div>
                 </div>
               </div>
@@ -453,28 +473,23 @@ function renderMultiLobby() {
       </div>
       `}
 
-      ${isRealtime && !isJoinPanel && !connectedJoinClient ? `
+      ${isRealtime && !isJoinPanel && !connectedJoinClient && qrImageUrl ? `
         <div class="card">
-          <div class="section-label">🔗 Fast Join Link</div>
-          <div class="realtime-row">
-            <div class="input-row">
-              <input type="text" class="input" readonly value="${shareJoinUrl || 'Available after room service starts'}"/>
-              <button class="copy-btn" id="copyFastLinkBtn" onclick="copyLink()">📋 Copy</button>
-            </div>
+          <div class="section-label">🔳 Scan to join</div>
+          <div class="qr-copy-wrap">
+            <div class="qr-touch-copy"
+                 role="button"
+                 tabindex="0"
+                 aria-label="Show fullscreen join code and QR"
+                 title="Click for fullscreen QR + code"
+                 onclick="showBigRoomCode()"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showBigRoomCode();}"
+                 style="background-image:url('${qrImageUrl}')"></div>
           </div>
-          ${qrImageUrl ? `
-            <div class="qr-copy-wrap">
-              <div class="qr-touch-copy"
-                   role="button"
-                   tabindex="0"
-                   aria-label="Copy room join link"
-                   title="Click to copy"
-                   onclick="copyQrShortcut()"
-                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();copyQrShortcut();}"
-                   style="background-image:url('${qrImageUrl}')"></div>
-            </div>
-          ` : ''}
-          <div class="footnote" style="margin-top:10px;line-height:1.4">
+          <div class="footnote" style="margin-top:10px;line-height:1.4;text-align:center">
+            Tap the QR for a fullscreen view (great on a TV or shared screen).
+          </div>
+          <div class="footnote" style="margin-top:8px;line-height:1.4">
             <strong>How to join:</strong> ${connectionGuide}
           </div>
         </div>
@@ -644,19 +659,20 @@ function renderMultiLobby() {
   `;
 }
 
+// Fullscreen projector view (Gimkit-style): giant room code + large QR + the
+// direct join link, on a light background readable from across a room.
 function renderBigRoomCodeModal() {
-  const joinPortal = getJoinPortalUrl();
+  const shareJoinUrl = getShareJoinUrl(state.gameCode);
+  const qrLargeUrl = getShareQrImageUrl(state.gameCode, 480);
   return `
-    <div class="modal-overlay" onclick="hideBigRoomCode()">
-      <div class="modal-content big-room-code-modal" onclick="event.stopPropagation()">
-        <div style="color:var(--text-primary);font-size:0.96rem;margin-bottom:8px">Room code</div>
-        <div class="big-room-code-value">${state.gameCode}</div>
-        <div style="margin:10px 0 8px;font-weight:600">Join portal URL</div>
-        <div class="input-row" style="margin-bottom:14px">
-          <input type="text" class="input" readonly value="${joinPortal || 'Available after room service starts'}"/>
-          <button class="copy-btn" id="copyPortalBtnLarge" onclick="copyJoinPortal('copyPortalBtnLarge')">📋 Copy</button>
-        </div>
-        <button class="btn btn-primary btn-full" onclick="hideBigRoomCode()">Close</button>
+    <div class="big-code-fullscreen" onclick="hideBigRoomCode()">
+      <button class="big-code-close" onclick="hideBigRoomCode()" aria-label="Close">✕</button>
+      <div class="big-code-inner" onclick="event.stopPropagation()">
+        <div class="big-code-label">Join with code</div>
+        <div class="big-code-value">${state.gameCode}</div>
+        ${qrLargeUrl ? `<img class="big-code-qr" src="${qrLargeUrl}" alt="QR code to join room ${state.gameCode}" draggable="false"/>` : ''}
+        ${shareJoinUrl ? `<div class="big-code-url">${shareJoinUrl}</div>` : ''}
+        <div class="big-code-hint">Scan the QR or open the link — it joins this room directly.</div>
       </div>
     </div>
   `;
@@ -746,13 +762,25 @@ function renderJoinReadonlySetup(allPlayers) {
     </div>
     ${preset ? `
       <div class="card">
-        <div class="section-label">🎛️ Selected Preset</div>
+        <div class="section-label">🎛️ Selected Ratio Preset</div>
         <div class="preset-card selected" style="border-color:${preset.color};background:${preset.color}20;cursor:default">
           <div class="preset-name" style="color:${preset.color}">${preset.name}</div>
           <div class="preset-desc">${preset.description}</div>
         </div>
       </div>
     ` : ''}
+    ${(() => {
+      const gameplayPreset = getGameplayPreset();
+      return `
+        <div class="card">
+          <div class="section-label">🎲 Gameplay Preset (rules in effect)</div>
+          <div class="preset-card selected" style="border-color:${gameplayPreset.color};background:${gameplayPreset.color}20;cursor:default">
+            <div class="preset-name" style="color:${gameplayPreset.color}">${gameplayPreset.name}</div>
+            <div class="preset-desc">${gameplayPreset.desc}</div>
+          </div>
+        </div>
+      `;
+    })()}
     <div class="card">
       <div class="section-label">⚖️ Role Counts (Read-only)</div>
       <div style="border-top:1px solid var(--border-color);padding-top:12px">
@@ -784,8 +812,8 @@ function renderJoinReadonlySetup(allPlayers) {
 function renderRoleConfig(allPlayers, total, warnings) {
   return `
     <div class="card">
-      <div class="section-label">⚖️ Role Balance</div>
-      <div style="color:var(--text-secondary);font-size:0.84rem;margin:-4px 0 12px">Role presets only adjust role counts. Story atmosphere and other behavior settings are configured separately.</div>
+      <div class="section-label">⚖️ Ratio Presets</div>
+      <div style="color:var(--text-secondary);font-size:0.84rem;margin:-4px 0 12px">Ratio presets only adjust how many of each role are in the game.</div>
       <div class="grid-2" style="margin-bottom:16px">
         ${ROLE_PRESETS.map(p => `
           <div class="preset-card ${state.selectedPreset?.id === p.id ? 'selected' : ''}"
@@ -793,6 +821,19 @@ function renderRoleConfig(allPlayers, total, warnings) {
                onclick="selectPreset('${p.id}')">
             <div class="preset-name" style="color:${p.color}">${p.name}</div>
             <div class="preset-desc">${p.description}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="section-label">🎲 Gameplay Presets</div>
+      <div style="color:var(--text-secondary);font-size:0.84rem;margin:-4px 0 12px">Gameplay presets change the actual rules — how stealthy detectives are, how often witnesses notice, how hard saves are.</div>
+      <div class="grid-2" style="margin-bottom:16px">
+        ${GAMEPLAY_PRESETS.map(p => `
+          <div class="preset-card ${state.selectedGameplayPreset === p.id ? 'selected' : ''}"
+               style="${state.selectedGameplayPreset === p.id ? `border-color:${p.color};background:${p.color}20` : ''}"
+               onclick="selectGameplayPreset('${p.id}')">
+            <div class="preset-name" style="color:${p.color}">${p.name}</div>
+            <div class="preset-desc">${p.desc}</div>
           </div>
         `).join('')}
       </div>
@@ -841,7 +882,6 @@ function renderGame() {
     reveal: '#a855f7',
     day: '#eab308',
     night: '#6366f1',
-    morning_doctor: '#f97316',
     announcement: '#ef4444',
     discussion: '#f97316',
     vote: '#eab308',
@@ -849,11 +889,11 @@ function renderGame() {
     gameover: '#ef4444'
   };
 
+  // "Evening" = decide WHERE you'll be tonight; "Night" = what you do there.
   const phaseLabels = {
     reveal: 'ROLE REVEAL',
-    day: 'DAY',
+    day: 'EVENING',
     night: 'NIGHT',
-    morning_doctor: 'MORNING',
     announcement: 'NEWS',
     discussion: 'DISCUSSION',
     vote: 'VOTE',
@@ -947,7 +987,6 @@ function renderGame() {
     if (state.gamePhase === 'reveal') content = renderRevealPhase(current);
     if (state.gamePhase === 'day') content = renderDayPhase(current, allPlayers);
     if (state.gamePhase === 'night') content = renderNightPhase(current, alivePlayers);
-    if (state.gamePhase === 'morning_doctor') content = renderDoctorPhase(alivePlayers);
     if (state.gamePhase === 'discussion') content = renderDiscussionPhase(current);
     if (state.gamePhase === 'vote') content = renderVotePhase(current, alivePlayers);
   }
@@ -1028,6 +1067,69 @@ function renderGame() {
     </div>
     ${state.showMap ? renderMapModal() : ''}
     ${showCornerChat ? renderMultiDeviceChatPanel({ prominent: true, corner: true }) : ''}
+    ${renderMapHintCallout()}
+    ${state.tutorialStep !== null && state.tutorialStep !== undefined ? renderTutorialOverlay() : ''}
+  `;
+}
+
+// One-time pointer toward the map button at the start of a game.
+function renderMapHintCallout() {
+  if (state.tutorialStep !== null && state.tutorialStep !== undefined) return '';
+  if (state.gamePhase !== 'reveal' && state.gamePhase !== 'day') return '';
+  try {
+    if (localStorage.getItem('mafia_map_hint_seen')) return '';
+  } catch (error) {
+    return '';
+  }
+  return `
+    <div class="map-hint-callout">
+      <div class="map-hint-arrow">↗</div>
+      <div class="map-hint-text"><strong>🗺️ Map:</strong> see every room, its exposure, and how rooms connect.</div>
+      <button class="btn btn-small btn-secondary" onclick="dismissMapHint()">Got it</button>
+    </div>
+  `;
+}
+
+// First-run feature tutorial. Five compact steps; per-device; skippable.
+function renderTutorialOverlay() {
+  const steps = [
+    {
+      title: '🌆 Evenings: choose WHERE',
+      body: 'Each round starts in the evening: every player picks a location and what they\'ll be doing there. That choice decides what you can learn — and how easily trouble finds you.'
+    },
+    {
+      title: '🔍 Info vs ⚠️ Exposure',
+      body: 'Every action shows two numbers. <strong>Info</strong> is your chance of learning something useful. <strong>Exposure</strong> is how visible you are. Hiding is safe but blind. Snooping is informative but loud. Choose your tradeoff.'
+    },
+    {
+      title: '🌙 Nights: choose WHAT',
+      body: 'At night each role acts: the Mafia pick a victim, Detectives can shadow one person (near-certain truth, very risky if Mafia are close), Doctors quietly pick someone to protect, and everyone else picks how watchful to stay.'
+    },
+    {
+      title: '🧾 Morning intel — with honesty labels',
+      body: 'What you learn overnight appears as intel lines, each tagged <span class="reliability-chip reliability-confirmed">✅ confirmed</span>, <span class="reliability-chip reliability-likely">🟡 likely</span>, or <span class="reliability-chip reliability-uncertain">⚠️ uncertain</span>. The percentages are the real odds the line is true — treat uncertain claims with suspicion.'
+    },
+    {
+      title: '🗺️ Map, chat, and the vote',
+      body: 'The 🗺️ button (top right) shows every room and its exposure. In multi-device games, the chat panel opens during discussion. Compare stories, watch for contradictions, then vote someone out. Good luck.'
+    }
+  ];
+  const step = Math.max(0, Math.min(steps.length - 1, state.tutorialStep || 0));
+  const item = steps[step];
+  return `
+    <div class="tutorial-overlay">
+      <div class="tutorial-card">
+        <div class="tutorial-progress">${steps.map((_, i) => `<span class="tutorial-dot ${i === step ? 'active' : ''}"></span>`).join('')}</div>
+        <div class="tutorial-title">${item.title}</div>
+        <div class="tutorial-body">${item.body}</div>
+        <div class="tutorial-actions">
+          <button class="btn btn-secondary btn-small" onclick="tutorialSkip()">Skip</button>
+          <span style="flex:1"></span>
+          ${step > 0 ? '<button class="btn btn-secondary" onclick="tutorialBack()">Back</button>' : ''}
+          <button class="btn btn-primary" onclick="tutorialNext()">${step >= steps.length - 1 ? 'Play!' : 'Next'}</button>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -1074,13 +1176,27 @@ function renderMapModal() {
   const displayCards = roomCards.length > 0 ? roomCards : fallbackCards;
   const activeTitle = activeFloor?.name || 'Map';
 
+  const NODE_TYPE_ICONS = {
+    private_cluster: '🛏️',
+    investigation: '🔎',
+    vantage: '👀',
+    shared: '🗣️',
+    isolated: '🕳️',
+    transit: '🚶',
+    utility: '🔧',
+    room: '🚪'
+  };
+  const currentPlayer = typeof getCurrentPlayer === 'function' ? getCurrentPlayer() : null;
+  const myPlan = currentPlayer ? state.nightPlans[currentPlayer.id] : null;
+  const myNodeId = myPlan?.location || null;
+
   return `
     <div class="modal-overlay" onclick="closeMap()">
       <div class="map-modal" onclick="event.stopPropagation()">
         <div class="map-modal-header">
           <div>
             <div class="section-label" style="margin-bottom:4px">🗺️ ${state.selectedStory.name} Floorplan</div>
-            <div style="color:var(--text-secondary);font-size:0.86rem">Exposure = your exposure to information and threats.</div>
+            <div style="color:var(--text-primary);font-size:0.88rem">🔍 busier rooms yield more information · ⚠️ they also expose you more</div>
           </div>
           <button class="btn btn-secondary btn-small" onclick="closeMap()">Close</button>
         </div>
@@ -1100,28 +1216,37 @@ function renderMapModal() {
           <div class="floorplan-image-card">
             <div class="floorplan-image-label">${activeTitle}</div>
             ${activeFloor?.image
-              ? `<img src="${activeFloor.image}" alt="${activeTitle} floorplan" class="floorplan-image"/>`
+              ? `<img src="${activeFloor.image}" alt="${activeTitle} floorplan" class="floorplan-image" draggable="false"/>`
               : '<div class="floorplan-image-missing">No floorplan image available for this floor.</div>'}
+            <div class="map-legend">
+              ${Object.entries(NODE_TYPE_ICONS).filter(([type]) => displayCards.some(item => item.node.type === type)).map(([type, icon]) =>
+                `<span class="map-legend-item">${icon} ${type.replace(/_/g, ' ')}</span>`
+              ).join('')}
+            </div>
           </div>
           <div class="floorplan-room-column">
-            <div class="floorplan-room-title">Room Notes</div>
-            ${displayCards.map(item => `
-              <div class="floorplan-room-card">
+            <div class="floorplan-room-title">Rooms</div>
+            ${displayCards.map(item => {
+              const isHere = myNodeId && item.node.id === myNodeId;
+              return `
+              <div class="floorplan-room-card ${isHere ? 'floorplan-room-here' : ''}">
                 <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
-                  <span class="map-node-name">${item.node.name}</span>
+                  <span class="map-node-name">${NODE_TYPE_ICONS[item.node.type] || '🚪'} ${item.node.name} ${isHere ? '<span class="you-are-here">📍 you are here</span>' : ''}</span>
                   <span class="exposure-badge" style="color:${getExposureColor(item.exposure || 0)};border-color:${getExposureColor(item.exposure || 0)}">
-                    Exposure ${getExposurePct(item.exposure || 0)}%
+                    ⚠️ ${getExposurePct(item.exposure || 0)}%
                   </span>
                 </div>
+                <div class="exposure-heat"><div class="exposure-heat-fill" style="width:${getExposurePct(item.exposure || 0)}%;background:${getExposureColor(item.exposure || 0)}"></div></div>
                 <div class="map-node-type">${item.node.type.replace(/_/g, ' ')}</div>
                 <div class="floorplan-room-note">${item.note || 'No additional room note.'}</div>
               </div>
-            `).join('')}
+            `;
+            }).join('')}
           </div>
         </div>
 
         <div class="floorplan-connections">
-          <div class="floorplan-room-title">Connection Notes</div>
+          <div class="floorplan-room-title">Connections</div>
           ${connectionNotes.length > 0 ? connectionNotes.map(connection => `
             <div class="floorplan-connection-item">
               <strong>${connection.title}</strong>
@@ -1293,35 +1418,47 @@ function renderDayPhase(current, allPlayers) {
       <div style="color:var(--text-secondary);font-size:0.84rem;margin-bottom:10px">
         ${isMafia
           ? 'Risk reflects how exposed your route is to witnesses.'
-          : 'Exposure means your exposure to information and threats.'}
+          : '🔍 Info = how much you are likely to learn. ⚠️ Exposure = how visible you are to threats. They are different: hiding is safe but blind; snooping is informative but loud.'}
       </div>
       <div class="location-grid">
-        ${sortedLocations.map(l => `
+        ${sortedLocations.map(l => {
+          const infoRange = !isMafia && Array.isArray(l.actions) && l.actions.length > 0
+            ? (() => {
+              const values = l.actions.map(action => getPlanIntelChance(current, { location: l.id, action }));
+              return { min: Math.min(...values), max: Math.max(...values) };
+            })()
+            : null;
+          return `
             <div class="location-card ${state.selectedLocation === l.id ? 'selected' : ''}" onclick="selectLocation('${l.id}')">
               <div class="location-header">
                 <span class="location-name">${l.name}</span>
-                <span class="exposure-badge" style="color:${getExposureColor(l.exposure || 0)};border-color:${getExposureColor(l.exposure || 0)}">
-                  ${isMafia ? 'Risk' : 'Exposure'} ${getExposurePct(l.exposure || 0)}%
+                <span class="location-badges">
+                  ${infoRange ? `<span class="info-chip">🔍 ${getExposurePct(infoRange.min)}–${getExposurePct(infoRange.max)}%</span>` : ''}
+                  <span class="exposure-badge" style="color:${getExposureColor(l.exposure || 0)};border-color:${getExposureColor(l.exposure || 0)}">
+                    ${isMafia ? 'Risk' : '⚠️'} ${getExposurePct(l.exposure || 0)}%
+                  </span>
                 </span>
               </div>
               <span style="font-size:0.8rem;color:var(--text-secondary)">${(l.tags || []).join(' • ') || l.nodeType || ''}</span>
             </div>
-          `).join('')}
+          `;
+        }).join('')}
       </div>
 
       ${location ? `
         <div class="section-label">
           ${isMafia ? '2. Route options (low risk → high risk)' : '2. Choose your action (low exposure → high exposure)'}
         </div>
-        ${!isMafia ? '<div style="color:#fde68a;font-size:0.84rem;margin-bottom:8px">Tip: actions tagged "Snoop" are the quickest way to gather stronger clues.</div>' : ''}
+        ${!isMafia ? '<div style="color:#fde68a;font-size:0.84rem;margin-bottom:8px">Tip: actions tagged "Snoop" carry the highest information value — watch the 🔍 chip.</div>' : ''}
         <div class="action-list">
           ${[...actions].sort((a, b) => (a.exposure || 0) - (b.exposure || 0)).map(ac => `
             <div class="action-card ${state.selectedAction?.id === ac.id ? 'selected' : ''}" onclick="selectAction('${ac.id}')">
               <div class="action-header">
                 <span class="action-name">${ac.name} ${ac.kind === 'snoop' ? '<span class="action-tag">Snoop</span>' : ''}</span>
                 <div class="action-stats">
+                  ${!isMafia ? `<span class="info-chip">🔍 Info ${getExposurePct(getPlanIntelChance(current, { location: location.id, action: ac }))}%</span>` : ''}
                   <span class="exposure-chip" style="color:${getExposureColor(ac.exposure || 0)};border-color:${getExposureColor(ac.exposure || 0)}">
-                    ${isMafia ? 'Risk' : 'Exposure'} ${getExposurePct(ac.exposure || 0)}%
+                    ${isMafia ? 'Risk' : '⚠️ Exposure'} ${getExposurePct(ac.exposure || 0)}%
                   </span>
                 </div>
               </div>
@@ -1345,7 +1482,7 @@ function renderDayPhase(current, allPlayers) {
 
       ${current.role === 'detective' ? `
         <div class="card detective-lock-note">
-          <strong>Detective rule:</strong> detectives are always alert and never fully doze off, so they stay stealthier than most roles.
+          <strong>Detective edge (real numbers):</strong> you are about half as likely to be noticed while snooping, your plans run quieter (−18% exposure), and your information chance is boosted. The 🔍 chips above already include your bonus.
         </div>
       ` : ''}
 
@@ -1470,35 +1607,116 @@ function renderNightPhase(current, alivePlayers) {
     `;
   }
 
+  // --- Doctor: the protect choice IS their night stance (no separate morning
+  // turn that would expose who the doctor is). They pick before the attack
+  // resolves, classic Mafia style.
+  if (current.role === 'doctor') {
+    return `
+      <div class="card" style="border-color:#2563eb">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <span style="color:${ROLES.doctor.color}">${ROLES.doctor.icon}</span>
+          <span>${current.name}</span>
+          <span style="font-size:0.85rem;color:var(--text-secondary)">(Night stance)</span>
+        </div>
+        <div class="section-label" style="color:#60a5fa">💉 Choose who to watch over tonight</div>
+        <p style="color:var(--text-primary);margin-bottom:12px">
+          If the Mafia strike the person you chose, you are right there to stabilize them.
+          You decide now — before knowing who is attacked — so choose who looks most at risk.
+        </p>
+        <div class="target-grid">
+          ${alivePlayers.map(p => `
+            <button class="target-btn ${state.selectedSave === p.id ? 'selected' : ''}"
+                    style="${state.selectedSave === p.id ? 'background:rgba(37,99,235,0.4);border-color:#2563eb' : ''}"
+                    onclick="selectSave('${p.id}')">
+              ${p.isBot ? '🤖 ' : ''}${p.name}${p.id === current.id ? ' (you)' : ''}
+            </button>
+          `).join('')}
+        </div>
+        <button class="btn btn-full btn-lg" style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white"
+                onclick="confirmDoctorProtect()" ${!state.selectedSave ? 'disabled' : ''}>
+          Confirm Night Stance
+        </button>
+      </div>
+    `;
+  }
+
+  // --- Detective: role-flavored stances, including the dangerous-but-deadly
+  // single-person shadow.
+  if (current.role === 'detective') {
+    const selectedStance = state.selectedStance || state.detectiveStances[current.id]?.id || null;
+    const stanceOption = DETECTIVE_STANCE_OPTIONS.find(option => option.id === selectedStance) || null;
+    const needsTarget = Boolean(stanceOption?.requiresTarget);
+    const targets = alivePlayers.filter(p => p.id !== current.id);
+    return `
+      <div class="card" style="border-color:#9932cc">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <span style="color:${ROLES.detective.color}">${ROLES.detective.icon}</span>
+          <span>${current.name}</span>
+          <span style="font-size:0.85rem;color:var(--text-secondary)">(Night stance)</span>
+        </div>
+        <div style="color:var(--text-primary);margin-bottom:12px">Choose how you work tonight. Detectives are genuinely harder to notice — about half as likely to be spotted as anyone else doing the same thing.</div>
+        <div class="action-list">
+          ${DETECTIVE_STANCE_OPTIONS.map(option => `
+            <div class="action-card ${selectedStance === option.id ? 'selected' : ''}" onclick="selectNightStance('${option.id}')">
+              <div class="action-header">
+                <span class="action-name">${option.name}</span>
+                ${option.id === 'shadow_target'
+                  ? `<span class="info-chip">Info ~${current.role === 'detective' ? 97 : 90}%</span>`
+                  : option.id === 'sweep_routes'
+                    ? '<span class="info-chip">Info medium</span>'
+                    : '<span class="exposure-chip" style="color:#4ade80;border-color:#4ade80">Safe</span>'}
+              </div>
+              <div class="action-desc">${option.desc}</div>
+            </div>
+          `).join('')}
+        </div>
+        ${needsTarget ? `
+          <div class="section-label" style="margin-top:12px">Who will you shadow?</div>
+          <div class="target-grid">
+            ${targets.map(p => `
+              <button class="target-btn ${state.selectedStanceTarget === p.id ? 'selected' : ''}" onclick="selectStanceTarget('${p.id}')">
+                ${p.isBot ? '🤖 ' : ''}${p.name}
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
+        <button class="btn btn-primary btn-full btn-lg" onclick="confirmDetectiveStance()"
+                ${(!selectedStance || (needsTarget && !state.selectedStanceTarget)) ? 'disabled' : ''}>
+          Confirm Night Stance
+        </button>
+      </div>
+    `;
+  }
+
+  // --- Villagers (and any other town role): the classic awareness stances.
   const selectedAwareness = state.selectedAwareness
     || state.nightAwareness[current.id]
     || NIGHT_AWARENESS_OPTIONS[1].id;
   const awarenessChoices = [...NIGHT_AWARENESS_OPTIONS].sort((a, b) => (a.exposureMod || 0) - (b.exposureMod || 0));
-  const rolePrompt = current.role === 'doctor'
-    ? 'Pick your night stance. In the morning, you will choose who to save.'
-    : current.role === 'detective'
-      ? 'Pick your night stance. Detectives stay alert and naturally harder to notice.'
-      : 'Pick your night stance. Your choice affects how much you might notice.';
 
   return `
     <div class="card">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <span style="color:${ROLES[current.role]?.color}">${ROLES[current.role]?.icon}</span>
         <span>${current.name}</span>
-        <span style="font-size:0.85rem;color:var(--text-secondary)">(Night awareness turn)</span>
+        <span style="font-size:0.85rem;color:var(--text-secondary)">(Night stance)</span>
       </div>
 
-      <div style="color:var(--text-secondary);margin-bottom:12px">${rolePrompt}</div>
+      <div style="color:var(--text-secondary);margin-bottom:12px">Pick what you do tonight. Staying watchful raises your chance of catching late-night movement — and of being noticed yourself. If you spot trouble coming, being alert also helps you slip away.</div>
       <div class="section-label">Night stance (low exposure to high exposure)</div>
       <div class="action-list">
         ${awarenessChoices.map(option => {
           const exposure = clampExposure(0.5 + (option.exposureMod || 0));
+          const info = clampExposure(0.4 + (option.exposureMod || 0) * 1.6);
           return `
             <div class="action-card ${selectedAwareness === option.id ? 'selected' : ''}" onclick="selectNightAwareness('${option.id}')">
               <div class="action-header">
                 <span class="action-name">${option.name}</span>
-                <span class="exposure-chip" style="color:${getExposureColor(exposure)};border-color:${getExposureColor(exposure)}">
-                  Exposure ${getExposurePct(exposure)}%
+                <span class="action-stats">
+                  <span class="info-chip">🔍 Info ${getExposurePct(info)}%</span>
+                  <span class="exposure-chip" style="color:${getExposureColor(exposure)};border-color:${getExposureColor(exposure)}">
+                    ⚠️ Exposure ${getExposurePct(exposure)}%
+                  </span>
                 </span>
               </div>
               <div class="action-desc">${option.desc}</div>
@@ -1509,63 +1727,6 @@ function renderNightPhase(current, alivePlayers) {
 
       <button class="btn btn-primary btn-full btn-lg" onclick="confirmNightAwareness()">
         Confirm Night Stance
-      </button>
-    </div>
-  `;
-}
-
-function renderDoctorPhase(alivePlayers) {
-  const doctor = alivePlayers.find(p => p.role === 'doctor' && !p.isBot);
-  const method = getKillMethodById(state.nightAttackMethod || KILL_METHODS[0].id);
-  const targetId = state.nightTarget;
-  const likelyVictim = targetId ? alivePlayers.find(player => player.id === targetId) : null;
-  const attackCount = targetId ? (state.nightAttackCounts[targetId] || 1) : 1;
-  const saveChance = getDoctorSaveChance(method, attackCount);
-
-  if (!doctor) {
-    scheduleAutoAdvance(`doctor_auto_${state.dayNumber}`, 'skipDoctor');
-    return `
-      <div class="card" style="text-align:center">
-        <div style="color:var(--text-secondary);margin-bottom:12px">💉 The doctor makes their choice ${renderThinkingDots()}</div>
-        <div style="color:var(--text-secondary);font-size:0.9rem">Continuing in ~${state.botDelayMs}ms</div>
-      </div>
-    `;
-  }
-  clearAutoAdvance();
-
-  if (!state.showRole && !isSoloMode()) {
-    return `
-      <div class="card" style="text-align:center">
-        <div style="font-size:1.25rem;margin-bottom:8px">📲 Pass to <strong>${doctor.name}</strong></div>
-        <p style="color:var(--text-secondary);margin-bottom:16px">Doctor choice is private.</p>
-        <button class="btn btn-lg" style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white" onclick="showCurrentRole()">
-          Choose Who to Save
-        </button>
-      </div>
-    `;
-  }
-
-  if (!state.showRole && isSoloMode()) state.showRole = true;
-
-  return `
-    <div class="card" style="border-color:#2563eb">
-      <div class="section-label" style="color:#60a5fa">💉 Save one person from death tonight</div>
-      <p style="color:var(--text-secondary);margin-bottom:6px">Save chance is never guaranteed and drops when multiple attackers focus one target.</p>
-      <p style="color:var(--text-primary);margin-bottom:12px">Current likely attack profile: <strong style="color:#93c5fd">${method.name}</strong> (disturbance ${getExposurePct(method.noise || 0)}%). Estimated save chance against this profile: <strong style="color:#7dd3fc">${Math.round(saveChance * 100)}%</strong>.</p>
-      ${likelyVictim ? `<p style="color:#bfdbfe;margin-bottom:10px">Most likely target by mafia vote pattern: <strong>${likelyVictim.name}</strong></p>` : ''}
-      <div class="target-grid">
-        ${alivePlayers.map(p => `
-          <button class="target-btn ${state.selectedSave === p.id ? 'selected' : ''}"
-                  style="${state.selectedSave === p.id ? 'background:rgba(37,99,235,0.4);border-color:#2563eb' : ''}"
-                  onclick="selectSave('${p.id}')">
-            ${p.isBot ? '🤖 ' : ''}${p.name}
-            ${state.intelResults[p.id]?.heard ? `<div style="font-size:0.74rem;color:#cbd5e1;margin-top:3px">${state.intelResults[p.id].heard}</div>` : ''}
-          </button>
-        `).join('')}
-      </div>
-      <button class="btn btn-full btn-lg" style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:white"
-              onclick="confirmDoctorSave()" ${!state.selectedSave ? 'disabled' : ''}>
-        Confirm Save
       </button>
     </div>
   `;
@@ -1611,7 +1772,7 @@ function renderDiscussionPhase(current) {
       <div style="font-size:1.5rem;margin-bottom:12px">💬 Discussion Time</div>
       <p style="color:var(--text-secondary);margin-bottom:14px">
         ${isMultiDevice
-          ? 'Use the corner chat to compare clues. Narrator (if human mode) should set mood first, then host advances to voting.'
+          ? 'Compare clues in the chat below. Narrator (if human mode) sets the mood first, then the host advances to voting.'
           : (isSoloMode()
             ? 'Review your intel, then continue into voting.'
             : 'Talk out loud for a few seconds, then continue to private voting turns.')}
@@ -1620,13 +1781,15 @@ function renderDiscussionPhase(current) {
       ${isSoloMode() && myIntel ? `
         <div class="intel-box" style="text-align:left">
           <div class="intel-header">🔍 Your intel recap:</div>
-          ${myIntel.heard ? `<div class="intel-item">👂 ${myIntel.heard}</div>` : ''}
-          ${myIntel.saw ? `<div class="intel-item" style="font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
-          ${myIntel.nearby ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
-          ${myIntel.tracked ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.tracked}</div>` : ''}
-          ${myIntel.cause ? `<div class="intel-item" style="color:var(--text-secondary)">${myIntel.cause}</div>` : ''}
+          ${renderIntelLine('👂', myIntel.heard)}
+          ${renderIntelLine('👁️', myIntel.saw, 'font-weight:600')}
+          ${renderIntelLine('🕵️', myIntel.tracked, 'font-weight:600')}
+          ${renderIntelLine('🧭', myIntel.nearby, 'color:var(--text-secondary)')}
+          ${renderIntelLine('🧪', myIntel.cause, 'color:var(--text-secondary)')}
         </div>
       ` : ''}
+
+      ${isMultiDevice ? renderMultiDeviceChatPanel({ prominent: true }) : ''}
 
       <button class="btn btn-warning btn-lg" onclick="advanceDiscussion()" ${timerLocked || hostBlocked ? 'disabled' : ''}>
         ${buttonLabel}
@@ -1698,11 +1861,12 @@ function renderVotePhase(current, alivePlayers) {
       ${!isMafia ? `
         <div class="intel-box" style="margin-bottom:16px">
           <div class="intel-header" style="font-size:0.8rem">Your intel:</div>
-          ${myIntel.heard ? `<div style="font-size:0.9rem">👂 ${myIntel.heard}</div>` : ''}
-          ${myIntel.saw ? `<div style="font-size:0.9rem;font-weight:600">👁️ ${myIntel.saw}</div>` : ''}
-          ${myIntel.nearby ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.nearby}</div>` : ''}
-          ${myIntel.awareness ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.awareness}</div>` : ''}
-          ${myIntel.cause ? `<div style="font-size:0.9rem;color:var(--text-secondary)">${myIntel.cause}</div>` : ''}
+          ${renderIntelLine('👂', myIntel.heard)}
+          ${renderIntelLine('👁️', myIntel.saw, 'font-weight:600')}
+          ${renderIntelLine('🕵️', myIntel.tracked, 'font-weight:600')}
+          ${renderIntelLine('🧭', myIntel.nearby, 'color:var(--text-secondary)')}
+          ${renderIntelLine('🌙', myIntel.awareness, 'color:var(--text-secondary)')}
+          ${renderIntelLine('🧪', myIntel.cause, 'color:var(--text-secondary)')}
         </div>
       ` : `
         <div class="mafia-intel" style="margin-bottom:16px">
@@ -1856,6 +2020,7 @@ function renderInstructionsModal() {
         </div>
         <div class="instructions-body">${content}</div>
         <div class="instructions-footer">
+          ${state.screen === 'game' ? '<button class="btn btn-secondary btn-full" style="margin-bottom:8px" onclick="replayTutorial()">🎓 Replay feature tutorial</button>' : ''}
           <button class="btn btn-primary btn-full" onclick="hideInstructions()">Got it!</button>
         </div>
       </div>

@@ -114,11 +114,12 @@ async function playUntilGameOver(page, options = {}) {
     }
 
     if (await clickIfVisible(page, 'button:has-text("Continue to Player Turns")')) { progressed = true; await sleep(80); continue; }
+    if (await clickIfVisible(page, '.tutorial-card button:has-text("Skip")')) { progressed = true; await sleep(80); continue; }
+    if (await clickIfVisible(page, '.map-hint-callout button')) { progressed = true; await sleep(60); continue; }
     if (await clickIfVisible(page, 'button:has-text("Reveal My Role")')) { progressed = true; await sleep(80); continue; }
     if (await clickIfVisible(page, 'button:has-text("Got it!")')) { progressed = true; await sleep(80); continue; }
     if (await clickIfVisible(page, 'button:has-text("Plan My Night")')) { progressed = true; await sleep(80); continue; }
     if (await clickIfVisible(page, 'button:has-text("Open Night Console")')) { progressed = true; await sleep(80); continue; }
-    if (await clickIfVisible(page, 'button:has-text("Choose Who to Save")')) { progressed = true; await sleep(80); continue; }
     if (await clickIfVisible(page, 'button:has-text("Cast My Vote")')) { progressed = true; await sleep(80); continue; }
 
     progressed = (await chooseFirstIfNoneSelected(page, '.location-grid', '.location-card')) || progressed;
@@ -130,7 +131,6 @@ async function playUntilGameOver(page, options = {}) {
     if (await clickIfVisible(page, 'button:has-text("Confirm Plan")')) { progressed = true; await sleep(100); continue; }
     if (await clickIfVisible(page, 'button:has-text("Confirm Night Strike")')) { progressed = true; await sleep(100); continue; }
     if (await clickIfVisible(page, 'button:has-text("Confirm Night Stance")')) { progressed = true; await sleep(100); continue; }
-    if (await clickIfVisible(page, 'button:has-text("Confirm Save")')) { progressed = true; await sleep(100); continue; }
     if (await clickIfVisible(page, 'button:has-text("Proceed to Voting")')) { progressed = true; await sleep(100); continue; }
     if (await clickIfVisible(page, 'button:has-text("Submit Vote")')) { progressed = true; await sleep(100); continue; }
     if (await clickIfVisible(page, 'button:has-text("See Results")')) { progressed = true; await sleep(100); continue; }
@@ -189,6 +189,7 @@ async function addPlayersFromInput(page, names) {
 
 async function runSolo(browser, run) {
   const context = await browser.newContext();
+  await context.addInitScript(() => { try { localStorage.setItem("mafia_tutorial_done", "1"); localStorage.setItem("mafia_map_hint_seen", "1"); } catch (e) {} });
   const page = await context.newPage();
   const notes = [];
 
@@ -226,6 +227,7 @@ async function runSolo(browser, run) {
 
 async function runPassplay(browser, run) {
   const context = await browser.newContext();
+  await context.addInitScript(() => { try { localStorage.setItem("mafia_tutorial_done", "1"); localStorage.setItem("mafia_map_hint_seen", "1"); } catch (e) {} });
   const page = await context.newPage();
   const notes = [];
 
@@ -294,7 +296,9 @@ async function readRoomCodeFromHost(page) {
 
 async function runRealtime(browser, run) {
   const hostContext = await browser.newContext();
+  await hostContext.addInitScript(() => { try { localStorage.setItem("mafia_tutorial_done", "1"); localStorage.setItem("mafia_map_hint_seen", "1"); } catch (e) {} });
   const joinContext = await browser.newContext();
+  await joinContext.addInitScript(() => { try { localStorage.setItem("mafia_tutorial_done", "1"); localStorage.setItem("mafia_map_hint_seen", "1"); } catch (e) {} });
   const host = await hostContext.newPage();
   const join = await joinContext.newPage();
   const notes = [];

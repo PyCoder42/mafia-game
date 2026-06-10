@@ -677,3 +677,19 @@ Relay updated for cloud hosting: reads `$PORT`, binds `0.0.0.0`, answers HTTP `G
 | Deployed relay over wss:// | PASS | health 200 + full handshake/presence/action forwarding |
 | LIVE online multiplayer (github.io <-> Deno relay) | PASS 8/8 | 2 browsers host+join over internet, presence=2, host Start synced reveal+3 participants to joiner, 0 pageerrors |
 | Live Pages solo + pass-and-play (regression) | PASS | unchanged; clean console |
+
+---
+
+## Session 23: 12-Item Overhaul Verification (2026-06-10)
+
+**Tester:** Claude Code (Opus 4.8) | **Method:** Playwright headless against worktree backend (8001/8766).
+
+| Test | Status | Notes |
+|------|--------|-------|
+| Deterministic mechanics suite | PASS 12/12 | pod-snoop 92-97% truth on shadowed killer; lock-block ~30%; escape ~22-37%; pod-snoop detection ~55%; stealth .35/.72; Sharp Eyes .245; Deep Cover lowers saves; info snoop .84 vs hide .14; confidence metadata present; morning_doctor gone; QR 480 param |
+| Core logic regression | PASS 5/5 | bot votes sync, phase guard, bot doctor-protect + detective-stance picks, win ordering, no pageerrors |
+| Button sweep | PASS | new flow end-to-end incl. tutorial skip |
+| 10-run matrix | PASS 10/10 | 4 solo + 3 single-device + 3 realtime full games with the redesigned night flow |
+| Visual checks | PASS | tutorial, info chips, detective/doctor stances, upgraded map, merged share card, fullscreen Gimkit-style QR (screenshots reviewed) |
+
+Found-and-fixed during verification: pod-snoop missed killer movement when the victim escaped (gate was on attack success, not on the attempt) — watcher now reports the trip regardless of outcome.

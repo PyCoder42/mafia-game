@@ -114,13 +114,16 @@ Detective mindset:
 ## 4.4 Doctor
 Doctor changes in this variant:
 - no medicine inventory/loadout system
-- doctor acts in the morning doctor phase by choosing save target
+- **the doctor chooses who to protect during their NIGHT stance turn** — there is no separate morning doctor phase, so nothing about the flow reveals who the doctor is
+- the choice is made before knowing who the Mafia attacked (classic Mafia rules): protect whoever looks most at risk
 - save chance is probabilistic, not guaranteed
 - save chance drops when multiple attackers focus one victim
 - higher-disturbance method profiles are generally harder to stabilize
+- a victim trapped behind their own locked door is slightly harder to stabilize
 
 Doctor best practice:
-- use likely victim context + method profile + discussion contradictions
+- protect players whose evening plans look exposed (high ⚠️ numbers)
+- watch discussion for who the table is pressuring — Mafia often kill loud accusers
 - do not assume certainty from one clue line
 
 ---
@@ -151,33 +154,47 @@ Rule of thumb:
 - Pass prompts are neutral.
 - Never announce role text out loud.
 
-## 6.2 Day Planning
+## 6.2 Evening Planning (WHERE you'll be)
 Each living participant chooses:
-- location
-- action
-- optional target (if required)
+- location (where you spend the night)
+- action (your cover: what you're physically doing there)
+- optional target (if the action requires one)
 
-Interpretation tips:
-- snoop-tagged actions are clue-focused
-- low exposure is safer but often less decisive
+Every action shows two numbers:
+- **🔍 Info** — your chance of learning something useful tonight
+- **⚠️ Exposure** — how visible you are to threats and witnesses
 
-## 6.3 Night
-Night actors take turns.
+They are different on purpose: hiding is safe but blind; snooping is informative but loud.
+
+Bedroom choices matter mechanically:
+- **Sleep and lock**: break-ins fail outright about a third of the time (and are loud) — but if they get through, you are trapped with no exit
+- **Sleep without locking**: Mafia can slip in quietly, but you keep a real escape chance through your exit route (better when someone alert is nearby)
+- **Porch watch**: nobody can approach you quietly and you may spot movement — at the cost of being clearly visible
+
+## 6.3 Night (WHAT you do there)
+Every living player takes a private night turn, by role:
 
 Mafia:
 - selects target
 - selects attack method
 
-Non-mafia:
-- chooses a night stance/action
-- this is active play, not a skip phase
+Detective:
+- **Shadow one person**: near-certain truth about what that one person did tonight — but if any Mafia passes close to that room, they will very likely notice you (dangerous even for detectives)
+- **Sweep the routes**: broad moderate awareness
+- **Lay low**: safe, learn little
 
-## 6.4 Morning Doctor
-If there was a night attack and doctor is alive:
-- doctor chooses save target
+Doctor:
+- chooses who to protect tonight (this IS the save — see 4.4)
 
-If no doctor phase is needed:
-- flow moves forward automatically
+Villagers:
+- choose how watchful to stay (low profile / listen / actively watch)
+- staying watchful raises both what you notice and how noticeable you are
+
+## 6.4 Morning Resolution
+The night resolves automatically:
+- a locked door may have blocked the attack entirely
+- an unlocked victim may have escaped through their exit route
+- otherwise the doctor's overnight protection is checked, then the outcome is announced
 
 ## 6.5 Announcement
 Public result appears first.
@@ -229,10 +246,17 @@ In discussion, pair disturbance with:
 
 Morning intel for non-mafia is never blank.
 
-You may receive:
-- strong hearing/sighting lines
-- partial/noisy context
-- inconclusive outcomes
+**Every intel line carries an honest reliability label**, and the percentages are the real odds used by the engine:
+- ✅ **confirmed** (~97%): ground truth — locations, who was nearby, what you heard yourself, and a detective's clear sightings
+- 🟡 **likely** (~78%): good information that can occasionally name the wrong person
+- ⚠️ **uncertain** (~55%): barely better than a coin flip — treat as a lead, not proof
+
+Ways intel is generated:
+- being physically near the attack (you hear it; you may see who fled)
+- a detective's **shadow one person** stance / a targeted room snoop: near-certain truth about that ONE person — including whether they slipped out in the night
+- watchful players catching Mafia movement crossing near them
+- escaping a night attack yourself (a half-glimpse of your attacker — uncertain tier)
+- Mafia can **plant false leads**: a planted clue arrives looking like any other ⚠️ uncertain line. This is why the labels matter.
 
 Inconclusive does **not** mean useless.
 It still narrows valid timelines when cross-checked with map distance and other claims.
@@ -266,9 +290,18 @@ Narrator is atmosphere + pacing support, not a source of hidden truth.
 
 ## 10. Presets And Role Balance
 
-Role presets in this build are role-count templates.
+There are **two distinct preset types**, clearly labeled in the lobby:
+
+**Ratio presets** (Classic, Blood Moon, Crossfire, Forensics) only adjust role counts.
 They do not silently override core systems.
-Preset descriptions are intentionally literal: percentages for Mafia/Doctor/Detective targets plus remaining Villagers.
+
+**Gameplay presets** change the actual rule math:
+- **Standard Rules**: baseline, no modifiers
+- **Sharp Eyes**: detectives are more useful — stealthier while snooping, boosted info, near-perfect shadowing
+- **Paranoid House**: witnesses notice more, everyone is more exposed — loud, fast games
+- **Deep Cover**: fewer witnesses and harder saves — quiet, brutal nights
+
+A ratio preset and a gameplay preset can be active at the same time; joining devices see both in their read-only setup summary.
 
 ## 10.1 Environment Rules In Settings (Core Logic Impact)
 
@@ -433,7 +466,7 @@ Punish inconsistent data.
 - false; Mafia must strictly outnumber town.
 
 "Doctor should always save the most suspicious person."
-- not always; save logic is about likely victim and stabilization context.
+- no: you protect likely *victims*, not suspects — and you choose before knowing who is attacked. Protect exposed players and loud accusers.
 
 "Narrator text is hidden truth."
 - false; narrator sets pace and atmosphere without role spoilers.
